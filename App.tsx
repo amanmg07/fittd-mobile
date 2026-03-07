@@ -108,12 +108,7 @@ export default function App() {
           getComponent={() => require("./src/screens/BodyScanScreen").default}
           options={{ title: "Body Scan" }}
         />
-        <Stack.Screen
-          name="TryOnCapture"
-          getComponent={() => require("./src/screens/TryOnCaptureScreen").default}
-          options={{ title: "Take Photo" }}
-        />
-        <Stack.Screen
+<Stack.Screen
           name="TryOn"
           getComponent={() => require("./src/screens/TryOnScreen").default}
           options={{ title: "Virtual Try-On" }}

@@ -40,8 +40,8 @@ export default function BrowseScreen({ navigation }: Props) {
   };
 
   const handleTryOn = (productId: string) => {
-    navigation.getParent()?.navigate("TryOnCapture", { productId }) ??
-      navigation.navigate("TryOnCapture", { productId });
+    navigation.getParent()?.navigate("TryOn", { productId }) ??
+      navigation.navigate("TryOn", { productId });
   };
 
   return (

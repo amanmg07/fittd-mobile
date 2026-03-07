@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { api } from "../services/api";
+import { storage } from "../services/storage";
 import { TryOnResult, GarmentInfo, SizeRecommendation } from "../types";
 
 const viewerHtml = require("./TryOnViewer.html");
@@ -18,12 +19,12 @@ const viewerHtml = require("./TryOnViewer.html");
 type ViewMode = "ai" | "3d";
 
 interface Props {
-  route: { params: { productId: string; tryOnPhoto?: string } };
+  route: { params: { productId: string } };
   navigation: any;
 }
 
 export default function TryOnScreen({ route, navigation }: Props) {
-  const { productId, tryOnPhoto } = route.params;
+  const { productId } = route.params;
   const webviewRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
   const [viewerReady, setViewerReady] = useState(false);
@@ -70,10 +71,13 @@ export default function TryOnScreen({ route, navigation }: Props) {
         return;
       }
 
+      // Use stored front photo from body scan
+      const storedPhoto = await storage.loadFrontPhoto();
+
       const aiResult = await api.tryon.aiTryOn({
         user_id: "user_1",
         product_id: productId,
-        photo: tryOnPhoto,
+        photo: storedPhoto || undefined,
       });
 
       setAiImage(aiResult.image_b64);
