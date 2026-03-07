@@ -40,7 +40,8 @@ export default function BrowseScreen({ navigation }: Props) {
   };
 
   const handleTryOn = (productId: string) => {
-    navigation.navigate("TryOn", { productId });
+    navigation.getParent()?.navigate("TryOnCapture", { productId }) ??
+      navigation.navigate("TryOnCapture", { productId });
   };
 
   return (
@@ -99,6 +100,44 @@ export default function BrowseScreen({ navigation }: Props) {
             </View>
           </View>
 
+          {garment.sizes.length > 0 && (
+            <View style={styles.sizeChartSection}>
+              <Text style={styles.sectionTitle}>Size Chart (cm)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View>
+                  <View style={styles.chartRow}>
+                    <Text style={[styles.chartCell, styles.chartHeader, styles.chartLabelCell]}>Size</Text>
+                    {garment.sizes.map((s) => (
+                      <Text key={s.size_label} style={[styles.chartCell, styles.chartHeader]}>
+                        {s.size_label}
+                      </Text>
+                    ))}
+                  </View>
+                  {[
+                    { label: "Chest", key: "chest_cm" },
+                    { label: "Waist", key: "waist_cm" },
+                    { label: "Length", key: "length_cm" },
+                    { label: "Shoulder", key: "shoulder_cm" },
+                    { label: "Sleeve", key: "sleeve_cm" },
+                  ]
+                    .filter((row) => garment.sizes.some((s) => (s as any)[row.key] != null))
+                    .map((row) => (
+                      <View key={row.key} style={styles.chartRow}>
+                        <Text style={[styles.chartCell, styles.chartLabelCell, styles.chartLabel]}>
+                          {row.label}
+                        </Text>
+                        {garment.sizes.map((s) => (
+                          <Text key={s.size_label} style={styles.chartCell}>
+                            {(s as any)[row.key] != null ? (s as any)[row.key] : "—"}
+                          </Text>
+                        ))}
+                      </View>
+                    ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
           <View style={styles.materialsSection}>
             <Text style={styles.sectionTitle}>Materials</Text>
             {Object.entries(garment.material_composition).map(([mat, pct]) => (
@@ -132,7 +171,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 32,
     fontWeight: "800",
-    color: "#fff",
+    color: "#f5f5dc",
     marginBottom: 8,
   },
   subheading: {
@@ -150,12 +189,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 14,
-    color: "#fff",
+    color: "#f5f5dc",
     borderWidth: 1,
     borderColor: "#333",
   },
   goButton: {
-    backgroundColor: "#fff",
+    backgroundColor: "#f5f5dc",
     borderRadius: 12,
     paddingHorizontal: 24,
     justifyContent: "center",
@@ -182,7 +221,7 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#fff",
+    color: "#f5f5dc",
     padding: 20,
     paddingBottom: 4,
   },
@@ -210,8 +249,36 @@ const styles = StyleSheet.create({
   chipValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#fff",
+    color: "#f5f5dc",
     marginTop: 4,
+  },
+  sizeChartSection: {
+    padding: 20,
+    paddingBottom: 0,
+  },
+  chartRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
+  },
+  chartCell: {
+    width: 64,
+    paddingVertical: 12,
+    fontSize: 13,
+    color: "#ccc",
+    textAlign: "center",
+  },
+  chartLabelCell: {
+    width: 80,
+    textAlign: "left",
+  },
+  chartHeader: {
+    fontWeight: "700",
+    color: "#f5f5dc",
+  },
+  chartLabel: {
+    color: "#888",
+    fontWeight: "600",
   },
   materialsSection: {
     padding: 20,
@@ -228,7 +295,7 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
   tryOnButton: {
-    backgroundColor: "#fff",
+    backgroundColor: "#f5f5dc",
     margin: 20,
     marginTop: 0,
     borderRadius: 12,

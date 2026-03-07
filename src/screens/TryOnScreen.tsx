@@ -7,29 +7,42 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Image,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { api } from "../services/api";
-import { TryOnResult, GarmentInfo } from "../types";
+import { TryOnResult, GarmentInfo, SizeRecommendation } from "../types";
 
 const viewerHtml = require("./TryOnViewer.html");
 
+type ViewMode = "ai" | "3d";
+
 interface Props {
-  route: { params: { productId: string } };
+  route: { params: { productId: string; tryOnPhoto?: string } };
   navigation: any;
 }
 
 export default function TryOnScreen({ route, navigation }: Props) {
-  const { productId } = route.params;
+  const { productId, tryOnPhoto } = route.params;
   const webviewRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
   const [viewerReady, setViewerReady] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("ai");
+
+  // AI try-on state
+  const [aiImage, setAiImage] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // 3D try-on state
   const [result, setResult] = useState<TryOnResult | null>(null);
+
+  // Shared state
   const [garment, setGarment] = useState<GarmentInfo | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [recommendation, setRecommendation] = useState<SizeRecommendation | null>(null);
 
   useEffect(() => {
-    loadTryOn();
+    loadAiTryOn();
   }, []);
 
   useEffect(() => {
@@ -42,13 +55,60 @@ export default function TryOnScreen({ route, navigation }: Props) {
     const url = sceneUrl.startsWith("http")
       ? sceneUrl
       : api.tryon.getSceneUrl(sceneUrl.replace("/api/tryon/scene/", "").replace(".glb", ""));
-
     webviewRef.current?.postMessage(JSON.stringify({ type: "loadModel", url }));
   };
 
-  const loadTryOn = async (size?: string) => {
+  const loadAiTryOn = async () => {
+    setAiLoading(true);
     setLoading(true);
     try {
+      const profile = await api.body.ensureProfile("user_1");
+      if (!profile) {
+        Alert.alert("No Body Scan", "Please scan your body first.", [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+        return;
+      }
+
+      const aiResult = await api.tryon.aiTryOn({
+        user_id: "user_1",
+        product_id: productId,
+        photo: tryOnPhoto,
+      });
+
+      setAiImage(aiResult.image_b64);
+      setSelectedSize(aiResult.selected_size);
+      if (aiResult.recommendation) {
+        setRecommendation(aiResult.recommendation as SizeRecommendation);
+      }
+
+      // Load garment info
+      try {
+        const garmentInfo = await api.garments.get(productId);
+        setGarment(garmentInfo);
+      } catch {}
+    } catch (error: any) {
+      Alert.alert("AI Try-On Failed", error.message + "\nFalling back to 3D view.");
+      setViewMode("3d");
+      load3dTryOn();
+    } finally {
+      setAiLoading(false);
+      setLoading(false);
+    }
+  };
+
+  const load3dTryOn = async (size?: string) => {
+    setLoading(true);
+    try {
+      const profile = await api.body.ensureProfile("user_1");
+      if (!profile) {
+        Alert.alert("No Body Scan", "Please scan your body first.", [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+        setLoading(false);
+        return;
+      }
+
       const tryOnResult = await api.tryon.create({
         user_id: "user_1",
         product_id: productId,
@@ -56,10 +116,13 @@ export default function TryOnScreen({ route, navigation }: Props) {
       });
       setResult(tryOnResult);
       setSelectedSize(tryOnResult.selected_size);
+      setRecommendation(tryOnResult.recommendation);
 
       if (!garment) {
-        const garmentInfo = await api.garments.get(tryOnResult.product_id);
-        setGarment(garmentInfo);
+        try {
+          const garmentInfo = await api.garments.get(tryOnResult.product_id);
+          setGarment(garmentInfo);
+        } catch {}
       }
     } catch (error: any) {
       Alert.alert("Error", error.message);
@@ -70,7 +133,16 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
   const handleSizeChange = (size: string) => {
     setSelectedSize(size);
-    loadTryOn(size);
+    if (viewMode === "3d") {
+      load3dTryOn(size);
+    }
+  };
+
+  const switchMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (mode === "3d" && !result) {
+      load3dTryOn();
+    }
   };
 
   const onWebViewMessage = (event: any) => {
@@ -81,32 +153,79 @@ export default function TryOnScreen({ route, navigation }: Props) {
     } catch {}
   };
 
-  if (loading && !result) {
+  if (loading && !aiImage && !result) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Generating your virtual try-on...</Text>
+        <ActivityIndicator size="large" color="#f5f5dc" />
+        <Text style={styles.loadingText}>
+          {viewMode === "ai"
+            ? "Generating AI try-on...\nThis may take 30-60 seconds"
+            : "Generating your virtual try-on..."}
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.viewer}>
-        <WebView
-          ref={webviewRef}
-          source={viewerHtml}
-          style={{ flex: 1, backgroundColor: "#111" }}
-          onMessage={onWebViewMessage}
-          javaScriptEnabled
-          originWhitelist={["*"]}
-          allowFileAccess
-        />
+      {/* Mode toggle */}
+      <View style={styles.modeToggle}>
+        <TouchableOpacity
+          style={[styles.modeButton, viewMode === "ai" && styles.modeButtonActive]}
+          onPress={() => switchMode("ai")}
+        >
+          <Text style={[styles.modeText, viewMode === "ai" && styles.modeTextActive]}>
+            AI Photo
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeButton, viewMode === "3d" && styles.modeButtonActive]}
+          onPress={() => switchMode("3d")}
+        >
+          <Text style={[styles.modeText, viewMode === "3d" && styles.modeTextActive]}>
+            3D Model
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-        {loading && (
-          <View style={styles.viewerOverlay}>
-            <ActivityIndicator color="#fff" />
-          </View>
+      {/* Viewer area */}
+      <View style={styles.viewer}>
+        {viewMode === "ai" ? (
+          aiImage ? (
+            <Image
+              source={{ uri: `data:image/png;base64,${aiImage}` }}
+              style={styles.aiImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={styles.viewerPlaceholder}>
+              {aiLoading ? (
+                <>
+                  <ActivityIndicator color="#f5f5dc" />
+                  <Text style={styles.placeholderText}>Generating AI try-on...</Text>
+                </>
+              ) : (
+                <Text style={styles.placeholderText}>AI try-on not available</Text>
+              )}
+            </View>
+          )
+        ) : (
+          <>
+            <WebView
+              ref={webviewRef}
+              source={viewerHtml}
+              style={{ flex: 1, backgroundColor: "#111" }}
+              onMessage={onWebViewMessage}
+              javaScriptEnabled
+              originWhitelist={["*"]}
+              allowFileAccess
+            />
+            {loading && (
+              <View style={styles.viewerOverlay}>
+                <ActivityIndicator color="#f5f5dc" />
+              </View>
+            )}
+          </>
         )}
       </View>
 
@@ -115,14 +234,14 @@ export default function TryOnScreen({ route, navigation }: Props) {
           <Text style={styles.productName}>{garment.name}</Text>
         )}
 
-        {result && (
+        {recommendation && (
           <View style={styles.recommendation}>
             <Text style={styles.recLabel}>Recommended Size</Text>
             <Text style={styles.recSize}>
-              {result.recommendation.recommended_size}
+              {recommendation.recommended_size}
             </Text>
             <Text style={styles.recConfidence}>
-              {(result.recommendation.confidence * 100).toFixed(0)}% confidence
+              {(recommendation.confidence * 100).toFixed(0)}% confidence
             </Text>
           </View>
         )}
@@ -130,10 +249,10 @@ export default function TryOnScreen({ route, navigation }: Props) {
         {garment?.sizes && (
           <View style={styles.sizeRow}>
             {garment.sizes.map((s) => {
-              const score = result?.recommendation.size_scores[s.size_label];
+              const score = recommendation?.size_scores[s.size_label];
               const isSelected = selectedSize === s.size_label;
               const isRecommended =
-                s.size_label === result?.recommendation.recommended_size;
+                s.size_label === recommendation?.recommended_size;
 
               return (
                 <TouchableOpacity
@@ -164,10 +283,10 @@ export default function TryOnScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {result && (
+        {recommendation && (
           <View style={styles.fitNotes}>
             <Text style={styles.notesTitle}>Fit Analysis</Text>
-            {(result.recommendation.fit_notes || []).map((note, i) => (
+            {(recommendation.fit_notes || []).map((note, i) => (
               <Text key={i} style={styles.noteText}>
                 {note}
               </Text>
@@ -194,13 +313,55 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 16,
     fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  modeToggle: {
+    flexDirection: "row",
+    margin: 16,
+    marginBottom: 0,
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 4,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 10,
+  },
+  modeButtonActive: {
+    backgroundColor: "#f5f5dc",
+  },
+  modeText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#888",
+  },
+  modeTextActive: {
+    color: "#0a0a0a",
   },
   viewer: {
-    height: "50%",
+    height: "45%",
     backgroundColor: "#111",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderRadius: 16,
+    margin: 16,
+    marginTop: 12,
     overflow: "hidden",
+  },
+  aiImage: {
+    flex: 1,
+    backgroundColor: "#111",
+  },
+  viewerPlaceholder: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderText: {
+    color: "#888",
+    marginTop: 12,
+    fontSize: 14,
   },
   viewerOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -210,12 +371,12 @@ const styles = StyleSheet.create({
   },
   controls: {
     flex: 1,
-    padding: 24,
+    paddingHorizontal: 24,
   },
   productName: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#fff",
+    color: "#f5f5dc",
     marginBottom: 16,
   },
   recommendation: {
@@ -233,7 +394,7 @@ const styles = StyleSheet.create({
   recSize: {
     fontSize: 32,
     fontWeight: "800",
-    color: "#fff",
+    color: "#f5f5dc",
     marginTop: 4,
   },
   recConfidence: {
@@ -258,8 +419,8 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   sizeSelected: {
-    backgroundColor: "#fff",
-    borderColor: "#fff",
+    backgroundColor: "#f5f5dc",
+    borderColor: "#f5f5dc",
   },
   sizeRecommended: {
     borderColor: "#4CAF50",
@@ -267,7 +428,7 @@ const styles = StyleSheet.create({
   sizeText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#fff",
+    color: "#f5f5dc",
   },
   sizeTextSelected: {
     color: "#0a0a0a",

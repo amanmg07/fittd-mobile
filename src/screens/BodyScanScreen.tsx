@@ -88,6 +88,7 @@ export default function BodyScanScreen({ navigation }: Props) {
       });
 
       await storage.saveProfile(profile);
+      await storage.saveFrontPhoto(frontImage);
       setStep("done");
       Alert.alert(
         "Scan Complete",
@@ -95,9 +96,16 @@ export default function BodyScanScreen({ navigation }: Props) {
         [
           {
             text: "Try On Clothes",
-            onPress: () => navigation.navigate("Browse"),
+            onPress: () => {
+              navigation.navigate("Tabs", { screen: "Browse" });
+            },
           },
-          { text: "View Profile", onPress: () => navigation.navigate("Profile") },
+          {
+            text: "View Profile",
+            onPress: () => {
+              navigation.navigate("Tabs", { screen: "Profile" });
+            },
+          },
         ]
       );
     } catch (error: any) {
@@ -228,13 +236,36 @@ export default function BodyScanScreen({ navigation }: Props) {
   if (step === "processing" || loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color="#f5f5dc" />
         <Text style={styles.text}>Building your 3D body model...</Text>
       </View>
     );
   }
 
-  return null;
+  // step === "done"
+  return (
+    <View style={styles.centerContainer}>
+      <Text style={styles.doneIcon}>✓</Text>
+      <Text style={styles.doneTitle}>Scan Complete</Text>
+      <Text style={styles.doneSubtitle}>Your body model has been saved</Text>
+      <TouchableOpacity
+        style={styles.doneButton}
+        onPress={() => navigation.navigate("Tabs", { screen: "Browse" })}
+      >
+        <Text style={styles.buttonText}>Try On Clothes</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.doneButton, styles.doneButtonSecondary]}
+        onPress={() => {
+          setStep("info");
+          setFrontImage(null);
+          setSideImage(null);
+        }}
+      >
+        <Text style={styles.doneButtonSecondaryText}>Scan Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -255,7 +286,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 32,
     fontWeight: "800",
-    color: "#fff",
+    color: "#f5f5dc",
     marginBottom: 8,
   },
   subheading: {
@@ -275,7 +306,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     fontSize: 18,
-    color: "#fff",
+    color: "#f5f5dc",
     borderWidth: 1,
     borderColor: "#333",
   },
@@ -293,8 +324,8 @@ const styles = StyleSheet.create({
     borderColor: "#333",
   },
   genderActive: {
-    backgroundColor: "#fff",
-    borderColor: "#fff",
+    backgroundColor: "#f5f5dc",
+    borderColor: "#f5f5dc",
   },
   genderText: {
     fontSize: 16,
@@ -305,7 +336,7 @@ const styles = StyleSheet.create({
     color: "#0a0a0a",
   },
   button: {
-    backgroundColor: "#fff",
+    backgroundColor: "#f5f5dc",
     borderRadius: 12,
     padding: 18,
     alignItems: "center",
@@ -320,7 +351,7 @@ const styles = StyleSheet.create({
     color: "#0a0a0a",
   },
   text: {
-    color: "#fff",
+    color: "#f5f5dc",
     fontSize: 16,
     textAlign: "center",
     marginTop: 16,
@@ -346,7 +377,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   instructionText: {
-    color: "#fff",
+    color: "#f5f5dc",
     fontSize: 16,
     textAlign: "center",
     marginTop: 24,
@@ -367,7 +398,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 4,
-    borderColor: "#fff",
+    borderColor: "#f5f5dc",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -375,7 +406,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#fff",
+    backgroundColor: "#f5f5dc",
   },
   captureButtonCountdown: {
     borderColor: "#4CAF50",
@@ -395,5 +426,39 @@ const styles = StyleSheet.create({
     color: "#666",
     fontSize: 13,
     marginTop: 12,
+  },
+  doneIcon: {
+    fontSize: 48,
+    color: "#4CAF50",
+    marginBottom: 16,
+  },
+  doneTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#f5f5dc",
+    marginBottom: 8,
+  },
+  doneSubtitle: {
+    fontSize: 16,
+    color: "#888",
+    marginBottom: 40,
+  },
+  doneButton: {
+    backgroundColor: "#f5f5dc",
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    width: "80%",
+    marginBottom: 12,
+  },
+  doneButtonSecondary: {
+    backgroundColor: "#1a1a1a",
+    borderWidth: 1,
+    borderColor: "#2a2a2a",
+  },
+  doneButtonSecondaryText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#f5f5dc",
   },
 });

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -10,13 +11,20 @@ import { api } from "../services/api";
 import { storage } from "../services/storage";
 import { BodyProfile } from "../types";
 
-export default function ProfileScreen() {
+interface Props {
+  navigation: any;
+}
+
+export default function ProfileScreen({ navigation }: Props) {
   const [profile, setProfile] = useState<BodyProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadProfile();
-  }, []);
+    const unsubscribe = navigation.addListener("focus", () => {
+      loadProfile();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const loadProfile = async () => {
     try {
@@ -41,7 +49,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color="#f5f5dc" />
       </View>
     );
   }
@@ -51,8 +59,14 @@ export default function ProfileScreen() {
       <View style={styles.center}>
         <Text style={styles.emptyText}>No body scan yet.</Text>
         <Text style={styles.emptySubtext}>
-          Go to the home screen and scan your body first.
+          Set up your body profile to get started.
         </Text>
+        <TouchableOpacity
+          style={styles.scanButton}
+          onPress={() => navigation.navigate("BodyScan")}
+        >
+          <Text style={styles.scanButtonText}>Set Up Profile</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -85,6 +99,13 @@ export default function ProfileScreen() {
           </View>
         ))}
       </View>
+
+      <TouchableOpacity
+        style={styles.updateButton}
+        onPress={() => navigation.navigate("BodyScan")}
+      >
+        <Text style={styles.updateButtonText}>Update Measurements</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -108,7 +129,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 32,
     fontWeight: "800",
-    color: "#fff",
+    color: "#f5f5dc",
     marginBottom: 8,
   },
   subheading: {
@@ -119,7 +140,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#fff",
+    color: "#f5f5dc",
     textAlign: "center",
   },
   emptySubtext: {
@@ -147,6 +168,33 @@ const styles = StyleSheet.create({
   measureValue: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#fff",
+    color: "#f5f5dc",
+  },
+  scanButton: {
+    backgroundColor: "#f5f5dc",
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    marginTop: 24,
+    width: "80%",
+  },
+  scanButtonText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0a0a0a",
+  },
+  updateButton: {
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: "#2a2a2a",
+  },
+  updateButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f5f5dc",
   },
 });

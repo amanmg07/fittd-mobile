@@ -44,6 +44,31 @@ export const api = {
     getMeshUrl(userId: string): string {
       return `${API_BASE}/api/body/${userId}/mesh.glb`;
     },
+
+    restore(profile: BodyProfile, frontPhoto?: string | null): Promise<BodyProfile> {
+      return request("/api/body/restore", {
+        method: "PUT",
+        body: JSON.stringify({
+          profile,
+          front_photo: frontPhoto || null,
+        }),
+      });
+    },
+
+    async ensureProfile(userId: string): Promise<BodyProfile | null> {
+      try {
+        return await this.getProfile(userId);
+      } catch {
+        // Profile missing on server — try restoring from local storage
+        const { storage } = require("../services/storage");
+        const local = await storage.loadProfile();
+        if (local && local.user_id === userId) {
+          const photo = await storage.loadFrontPhoto();
+          return await this.restore(local, photo);
+        }
+        return null;
+      }
+    },
   },
 
   garments: {
@@ -76,6 +101,27 @@ export const api = {
 
     getSceneUrl(sceneKey: string): string {
       return `${API_BASE}/api/tryon/scene/${sceneKey}.glb`;
+    },
+
+    aiTryOn(params: {
+      user_id: string;
+      product_id: string;
+      size?: string;
+      photo?: string;
+    }): Promise<{
+      image_b64: string;
+      selected_size: string;
+      recommendation: {
+        recommended_size: string;
+        confidence: number;
+        fit_notes: string[];
+        size_scores: Record<string, number>;
+      } | null;
+    }> {
+      return request("/api/tryon/ai", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
     },
   },
 };
