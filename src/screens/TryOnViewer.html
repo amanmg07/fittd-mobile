@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+* { margin: 0; padding: 0; }
+body { background: #111; overflow: hidden; }
+canvas { display: block; width: 100vw; height: 100vh; }
+#loading {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  color: #888; font-family: system-ui; font-size: 14px; text-align: center;
+}
+.spinner {
+  width: 32px; height: 32px; border: 3px solid #333; border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div>Loading 3D model...</div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 2.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x111111);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.enablePan = false;
+controls.minDistance = 1;
+controls.maxDistance = 5;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(5, 5, 5);
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+fillLight.position.set(-5, 3, -5);
+scene.add(fillLight);
+
+let model = null;
+
+function loadModel(url) {
+  document.getElementById('loading').style.display = 'block';
+  const loader = new GLTFLoader();
+
+  fetch(url)
+    .then(res => {
+      if (!res.ok) throw new Error('Failed to fetch: ' + res.status);
+      return res.arrayBuffer();
+    })
+    .then(buffer => {
+      loader.parse(buffer, '', (gltf) => {
+        if (model) scene.remove(model);
+
+        model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        model.position.sub(center);
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0) model.scale.setScalar(1.5 / maxDim);
+
+        scene.add(model);
+        document.getElementById('loading').style.display = 'none';
+
+        window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'loaded' }));
+      }, (err) => {
+        window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'error', message: String(err) }));
+      });
+    })
+    .catch(err => {
+      window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'error', message: err.message }));
+    });
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (model && !controls.enabled) {
+    model.rotation.y += 0.003;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Listen for messages from React Native
+document.addEventListener('message', (e) => {
+  try {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'loadModel') loadModel(msg.url);
+  } catch {}
+});
+window.addEventListener('message', (e) => {
+  try {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'loadModel') loadModel(msg.url);
+  } catch {}
+});
+
+window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'ready' }));
+</script>
+</body>
+</html>

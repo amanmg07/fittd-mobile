@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Fittd",
+    "slug": "fittd",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fittd.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Fittd needs camera access to scan your body for accurate sizing."
+      }
+    },
+    "android": {
+      "package": "com.fittd.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0a0a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Fittd needs camera access to scan your body for accurate sizing."
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5f251c23-3a58-42bd-9581-66efe6448509"
+      }
+    },
+    "owner": "amanmg"
+  }
+}
