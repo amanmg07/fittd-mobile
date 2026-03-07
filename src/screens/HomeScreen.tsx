@@ -26,7 +26,7 @@ export default function HomeScreen({ navigation }: Props) {
         if (!checkedFirstLaunch) {
           setCheckedFirstLaunch(true);
           if (!p) {
-            navigation.navigate("BodyScan");
+            navigation.navigate("Scan");
           }
         }
       });
@@ -45,7 +45,7 @@ export default function HomeScreen({ navigation }: Props) {
         {!profile ? (
           <TouchableOpacity
             style={styles.heroBanner}
-            onPress={() => navigation.navigate("BodyScan")}
+            onPress={() => navigation.navigate("Scan")}
             activeOpacity={0.85}
           >
             <View style={styles.heroContent}>
@@ -97,7 +97,7 @@ export default function HomeScreen({ navigation }: Props) {
 
             <TouchableOpacity
               style={styles.actionCard}
-              onPress={() => navigation.navigate("BodyScan")}
+              onPress={() => navigation.navigate("Scan")}
               activeOpacity={0.8}
             >
               <Text style={styles.actionIcon}>◎</Text>

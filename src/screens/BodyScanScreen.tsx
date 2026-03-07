@@ -97,13 +97,13 @@ export default function BodyScanScreen({ navigation }: Props) {
           {
             text: "Try On Clothes",
             onPress: () => {
-              navigation.navigate("Tabs", { screen: "Browse" });
+              navigation.navigate("Browse");
             },
           },
           {
             text: "View Profile",
             onPress: () => {
-              navigation.navigate("Tabs", { screen: "Profile" });
+              navigation.navigate("Profile");
             },
           },
         ]
@@ -250,7 +250,7 @@ export default function BodyScanScreen({ navigation }: Props) {
       <Text style={styles.doneSubtitle}>Your body model has been saved</Text>
       <TouchableOpacity
         style={styles.doneButton}
-        onPress={() => navigation.navigate("Tabs", { screen: "Browse" })}
+        onPress={() => navigation.navigate("Browse")}
       >
         <Text style={styles.buttonText}>Try On Clothes</Text>
       </TouchableOpacity>

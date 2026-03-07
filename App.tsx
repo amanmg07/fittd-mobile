@@ -7,6 +7,7 @@ import { View, Text, StyleSheet } from "react-native";
 
 import HomeScreen from "./src/screens/HomeScreen";
 import BrowseScreen from "./src/screens/BrowseScreen";
+import BodyScanScreen from "./src/screens/BodyScanScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 
 const Tab = createBottomTabNavigator();
@@ -16,6 +17,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
     Home: "⌂",
     Browse: "⊞",
+    Scan: "◎",
     Profile: "○",
   };
   return (
@@ -78,6 +80,11 @@ function TabNavigator() {
         options={{ title: "Browse" }}
       />
       <Tab.Screen
+        name="Scan"
+        component={BodyScanScreen}
+        options={{ title: "Body Scan" }}
+      />
+      <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{ title: "Profile" }}
@@ -104,11 +111,6 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="BodyScan"
-          getComponent={() => require("./src/screens/BodyScanScreen").default}
-          options={{ title: "Body Scan" }}
-        />
-<Stack.Screen
           name="TryOn"
           getComponent={() => require("./src/screens/TryOnScreen").default}
           options={{ title: "Virtual Try-On" }}

@@ -63,7 +63,7 @@ export default function ProfileScreen({ navigation }: Props) {
         </Text>
         <TouchableOpacity
           style={styles.scanButton}
-          onPress={() => navigation.navigate("BodyScan")}
+          onPress={() => navigation.navigate("Scan")}
         >
           <Text style={styles.scanButtonText}>Set Up Profile</Text>
         </TouchableOpacity>
@@ -102,7 +102,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
       <TouchableOpacity
         style={styles.updateButton}
-        onPress={() => navigation.navigate("BodyScan")}
+        onPress={() => navigation.navigate("Scan")}
       >
         <Text style={styles.updateButtonText}>Update Measurements</Text>
       </TouchableOpacity>
