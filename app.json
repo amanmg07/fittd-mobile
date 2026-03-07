@@ -15,7 +15,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.fittd.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Fittd needs camera access to scan your body for accurate sizing."
+        "NSCameraUsageDescription": "Fittd needs camera access to scan your body for accurate sizing.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
