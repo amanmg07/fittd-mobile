@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { storage, RecentTryOn } from "../services/storage";
 import { BodyProfile } from "../types";
+import { UnitSystem, formatLengthValue, lengthUnit } from "../utils/units";
 
 interface Props {
   navigation: any;
@@ -37,6 +38,7 @@ function timeSince(timestamp: number): string {
 export default function HomeScreen({ navigation }: Props) {
   const [profile, setProfile] = useState<BodyProfile | null>(null);
   const [recentTryOns, setRecentTryOns] = useState<RecentTryOn[]>([]);
+  const [unit, setUnit] = useState<UnitSystem>("metric");
   const [checkedFirstLaunch, setCheckedFirstLaunch] = useState(false);
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export default function HomeScreen({ navigation }: Props) {
         }
       });
       storage.loadRecentTryOns().then(setRecentTryOns);
+      storage.loadUnitSystem().then(setUnit);
     });
     return unsubscribe;
   }, [navigation, checkedFirstLaunch]);
@@ -102,18 +105,18 @@ export default function HomeScreen({ navigation }: Props) {
             </View>
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{profile.measurements.chest}</Text>
-                <Text style={styles.statUnit}>cm</Text>
+                <Text style={styles.statValue}>{formatLengthValue(profile.measurements.chest, unit)}</Text>
+                <Text style={styles.statUnit}>{lengthUnit(unit)}</Text>
                 <Text style={styles.statLabel}>Chest</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{profile.measurements.waist}</Text>
-                <Text style={styles.statUnit}>cm</Text>
+                <Text style={styles.statValue}>{formatLengthValue(profile.measurements.waist, unit)}</Text>
+                <Text style={styles.statUnit}>{lengthUnit(unit)}</Text>
                 <Text style={styles.statLabel}>Waist</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>{profile.measurements.shoulder_width}</Text>
-                <Text style={styles.statUnit}>cm</Text>
+                <Text style={styles.statValue}>{formatLengthValue(profile.measurements.shoulder_width, unit)}</Text>
+                <Text style={styles.statUnit}>{lengthUnit(unit)}</Text>
                 <Text style={styles.statLabel}>Shoulders</Text>
               </View>
             </View>

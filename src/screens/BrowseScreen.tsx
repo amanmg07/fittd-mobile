@@ -15,7 +15,9 @@ import {
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../services/api";
+import { storage } from "../services/storage";
 import { GarmentInfo } from "../types";
+import { UnitSystem, cmToIn, lengthUnit } from "../utils/units";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_WIDTH = SCREEN_WIDTH - 48;
@@ -29,6 +31,14 @@ export default function BrowseScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [garment, setGarment] = useState<GarmentInfo | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [unit, setUnit] = useState<UnitSystem>("metric");
+
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      storage.loadUnitSystem().then(setUnit);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const handlePaste = async () => {
     const text = await Clipboard.getStringAsync();
@@ -207,7 +217,7 @@ export default function BrowseScreen({ navigation }: Props) {
             {/* Size chart */}
             {garment.sizes.length > 0 && (
               <View style={styles.sizeChartSection}>
-                <Text style={styles.sectionLabel}>Size Chart (cm)</Text>
+                <Text style={styles.sectionLabel}>Size Chart ({lengthUnit(unit)})</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View>
                     <View style={styles.chartRow}>
@@ -233,7 +243,9 @@ export default function BrowseScreen({ navigation }: Props) {
                           </Text>
                           {garment.sizes.map((s) => (
                             <Text key={s.size_label} style={styles.chartCell}>
-                              {(s as any)[row.key] != null ? (s as any)[row.key] : "—"}
+                              {(s as any)[row.key] != null
+                              ? unit === "metric" ? (s as any)[row.key] : cmToIn((s as any)[row.key])
+                              : "—"}
                             </Text>
                           ))}
                         </View>

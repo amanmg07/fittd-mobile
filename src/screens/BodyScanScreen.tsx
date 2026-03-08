@@ -16,6 +16,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { api } from "../services/api";
 import { storage } from "../services/storage";
 import { Gender } from "../types";
+import { UnitSystem, formatLength } from "../utils/units";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -35,10 +36,12 @@ export default function BodyScanScreen({ navigation }: Props) {
   const [sideImage, setSideImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [unit, setUnit] = useState<UnitSystem>("metric");
   const cameraRef = useRef<any>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    storage.loadUnitSystem().then(setUnit);
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
@@ -97,7 +100,7 @@ export default function BodyScanScreen({ navigation }: Props) {
       setStep("done");
       Alert.alert(
         "Scan Complete",
-        `Measurements captured:\nChest: ${profile.measurements.chest}cm\nWaist: ${profile.measurements.waist}cm\nShoulders: ${profile.measurements.shoulder_width}cm`,
+        `Measurements captured:\nChest: ${formatLength(profile.measurements.chest, unit)}\nWaist: ${formatLength(profile.measurements.waist, unit)}\nShoulders: ${formatLength(profile.measurements.shoulder_width, unit)}`,
         [
           {
             text: "Try On Clothes",

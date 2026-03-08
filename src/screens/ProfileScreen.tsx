@@ -11,8 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { api } from "../services/api";
 import { storage } from "../services/storage";
 import { BodyProfile } from "../types";
-
-type UnitSystem = "metric" | "imperial";
+import { UnitSystem, formatLength, formatHeight, formatWeightValue, weightUnit, kgToLb } from "../utils/units";
 
 interface Props {
   navigation: any;
@@ -22,25 +21,6 @@ interface MeasurementItem {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
-}
-
-const cmToIn = (cm: number) => (cm / 2.54).toFixed(1);
-const kgToLb = (kg: number) => (kg * 2.20462).toFixed(1);
-
-function formatLength(cm: number, unit: UnitSystem): string {
-  return unit === "metric" ? `${cm} cm` : `${cmToIn(cm)} in`;
-}
-
-function formatWeight(kg: number, unit: UnitSystem): string {
-  return unit === "metric" ? `${kg} kg` : `${kgToLb(kg)} lb`;
-}
-
-function formatHeight(cm: number, unit: UnitSystem): string {
-  if (unit === "metric") return `${cm}`;
-  const totalIn = cm / 2.54;
-  const feet = Math.floor(totalIn / 12);
-  const inches = Math.round(totalIn % 12);
-  return `${feet}'${inches}"`;
 }
 
 export default function ProfileScreen({ navigation }: Props) {
@@ -174,10 +154,8 @@ export default function ProfileScreen({ navigation }: Props) {
           <Text style={styles.statLabel}>Height</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>
-            {unit === "metric" ? m.weight : kgToLb(m.weight)}
-          </Text>
-          <Text style={styles.statUnit}>{unit === "metric" ? "kg" : "lb"}</Text>
+          <Text style={styles.statValue}>{formatWeightValue(m.weight, unit)}</Text>
+          <Text style={styles.statUnit}>{weightUnit(unit)}</Text>
           <Text style={styles.statLabel}>Weight</Text>
         </View>
         <View style={styles.statBox}>

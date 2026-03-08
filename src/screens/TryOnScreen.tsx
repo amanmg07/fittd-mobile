@@ -18,6 +18,7 @@ import { WebView } from "react-native-webview";
 import { api } from "../services/api";
 import { storage } from "../services/storage";
 import { TryOnResult, GarmentInfo, SizeRecommendation, BodyProfile, GarmentSize } from "../types";
+import { UnitSystem, formatLength, cmToIn, lengthUnit } from "../utils/units";
 
 const viewerHtml = require("./TryOnViewer.html");
 
@@ -195,11 +196,13 @@ function FitAnalysis({
   garment,
   selectedSize,
   recommendation,
+  unit,
 }: {
   body: BodyProfile;
   garment: GarmentInfo;
   selectedSize: string | null;
   recommendation: SizeRecommendation | null;
+  unit: UnitSystem;
 }) {
   const size = garment.sizes.find((s) => s.size_label === selectedSize);
   if (!size) return null;
@@ -251,7 +254,9 @@ function FitAnalysis({
                     {ZONE_LABELS[d.zone]}
                   </Text>
                   <Text style={styles.fitEase}>
-                    {d.ease > 0 ? "+" : ""}{d.ease.toFixed(1)}cm
+                    {d.ease > 0 ? "+" : ""}
+                    {unit === "metric" ? d.ease.toFixed(1) : cmToIn(d.ease)}
+                    {lengthUnit(unit)}
                   </Text>
                 </View>
               </View>
@@ -363,6 +368,9 @@ export default function TryOnScreen({ route, navigation }: Props) {
   const [views360, setViews360] = useState<ViewFrame[]>([]);
   const [loading360, setLoading360] = useState(false);
 
+  // Unit preference
+  const [unit, setUnit] = useState<UnitSystem>("metric");
+
   // 3D try-on state
   const [result, setResult] = useState<TryOnResult | null>(null);
 
@@ -374,6 +382,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     loadAiTryOn();
+    storage.loadUnitSystem().then(setUnit);
   }, []);
 
   useEffect(() => {
@@ -693,6 +702,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
             garment={garment}
             selectedSize={selectedSize}
             recommendation={recommendation}
+            unit={unit}
           />
         )}
 
