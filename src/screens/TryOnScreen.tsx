@@ -414,6 +414,8 @@ export default function TryOnScreen({ route, navigation }: Props) {
       const storedPhoto = await storage.loadFrontPhoto();
 
       // Try 360° view first, then multi-angle, then single image
+      let frontImageB64: string | null = null;
+
       try {
         const result360 = await api.tryon.ai360({
           user_id: "user_1",
@@ -423,6 +425,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
         setViews360(result360.views);
         setSelectedSize(result360.selected_size);
+        frontImageB64 = result360.views.find((v) => v.angle_deg === 0)?.image_b64 || result360.views[0]?.image_b64 || null;
         if (result360.recommendation) {
           setRecommendation(result360.recommendation as SizeRecommendation);
         }
@@ -437,6 +440,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
           setAngleImages(multiResult.images);
           setSelectedSize(multiResult.selected_size);
+          frontImageB64 = multiResult.images[0]?.image_b64 || null;
           if (multiResult.recommendation) {
             setRecommendation(multiResult.recommendation as SizeRecommendation);
           }
@@ -450,13 +454,14 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
           setAngleImages([{ angle: "Front", image_b64: aiResult.image_b64 }]);
           setSelectedSize(aiResult.selected_size);
+          frontImageB64 = aiResult.image_b64;
           if (aiResult.recommendation) {
             setRecommendation(aiResult.recommendation as SizeRecommendation);
           }
         }
       }
 
-      // Load garment info
+      // Load garment info & save last try-on
       try {
         const garmentInfo = await api.garments.get(productId);
         setGarment(garmentInfo);
@@ -467,6 +472,15 @@ export default function TryOnScreen({ route, navigation }: Props) {
           image_url: garmentInfo.image_urls[0] || "",
           timestamp: Date.now(),
         });
+        if (frontImageB64) {
+          storage.saveLastTryOn({
+            product_id: garmentInfo.product_id,
+            name: garmentInfo.name,
+            brand: garmentInfo.brand,
+            image_b64: frontImageB64,
+            timestamp: Date.now(),
+          });
+        }
       } catch {}
     } catch (error: any) {
       Alert.alert("AI Try-On Failed", error.message + "\nFalling back to 3D view.");

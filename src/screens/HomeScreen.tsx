@@ -9,7 +9,7 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { storage, RecentTryOn } from "../services/storage";
+import { storage, RecentTryOn, LastTryOn } from "../services/storage";
 import { BodyProfile } from "../types";
 import { UnitSystem, formatLengthValue, lengthUnit } from "../utils/units";
 
@@ -38,6 +38,7 @@ function timeSince(timestamp: number): string {
 export default function HomeScreen({ navigation }: Props) {
   const [profile, setProfile] = useState<BodyProfile | null>(null);
   const [recentTryOns, setRecentTryOns] = useState<RecentTryOn[]>([]);
+  const [lastTryOn, setLastTryOn] = useState<LastTryOn | null>(null);
   const [unit, setUnit] = useState<UnitSystem>("metric");
   const [checkedFirstLaunch, setCheckedFirstLaunch] = useState(false);
 
@@ -53,6 +54,7 @@ export default function HomeScreen({ navigation }: Props) {
         }
       });
       storage.loadRecentTryOns().then(setRecentTryOns);
+      storage.loadLastTryOn().then(setLastTryOn);
       storage.loadUnitSystem().then(setUnit);
     });
     return unsubscribe;
@@ -154,37 +156,35 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <Text style={styles.sectionLabel}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
+        {/* Last Try-On Preview */}
+        {lastTryOn && (
+          <View style={styles.lastTryOnSection}>
+            <Text style={styles.sectionLabel}>Your Last Try-On</Text>
             <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => navigation.navigate("Browse")}
-              activeOpacity={0.8}
+              style={styles.lastTryOnCard}
+              onPress={() =>
+                navigation.getParent()?.navigate("TryOn", { productId: lastTryOn.product_id }) ??
+                navigation.navigate("TryOn", { productId: lastTryOn.product_id })
+              }
+              activeOpacity={0.85}
             >
-              <View style={styles.actionIconCircle}>
-                <Ionicons name="search-outline" size={22} color="#f5f5dc" />
+              <Image
+                source={{ uri: `data:image/png;base64,${lastTryOn.image_b64}` }}
+                style={styles.lastTryOnImage}
+                resizeMode="cover"
+              />
+              <View style={styles.lastTryOnInfo}>
+                <Text style={styles.lastTryOnBrand}>{lastTryOn.brand}</Text>
+                <Text style={styles.lastTryOnName} numberOfLines={2}>{lastTryOn.name}</Text>
+                <Text style={styles.lastTryOnTime}>{timeSince(lastTryOn.timestamp)}</Text>
+                <View style={styles.lastTryOnCta}>
+                  <Ionicons name="arrow-forward" size={16} color="#0a0a0a" />
+                  <Text style={styles.lastTryOnCtaText}>View Again</Text>
+                </View>
               </View>
-              <Text style={styles.actionTitle}>Browse</Text>
-              <Text style={styles.actionSub}>Find clothes to try on</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => navigation.navigate("Scan")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.actionIconCircle}>
-                <Ionicons name="body-outline" size={22} color="#f5f5dc" />
-              </View>
-              <Text style={styles.actionTitle}>{profile ? "Rescan" : "Scan"}</Text>
-              <Text style={styles.actionSub}>
-                {profile ? "Update your body model" : "Create your 3D model"}
-              </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        )}
 
         {/* How It Works */}
         <View style={styles.howItWorks}>
@@ -377,41 +377,62 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
 
-  // Quick actions
-  quickActions: {
+  // Last try-on
+  lastTryOnSection: {
     paddingHorizontal: 24,
     marginBottom: 32,
   },
-  actionsGrid: {
+  lastTryOnCard: {
     flexDirection: "row",
-    gap: 12,
-  },
-  actionCard: {
-    flex: 1,
     backgroundColor: "#1a1a1a",
     borderRadius: 16,
-    padding: 20,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: "#2a2a2a",
   },
-  actionIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#2a2a2a",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 14,
+  lastTryOnImage: {
+    width: 120,
+    height: 150,
+    backgroundColor: "#222",
   },
-  actionTitle: {
-    fontSize: 18,
+  lastTryOnInfo: {
+    flex: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+  lastTryOnBrand: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#888",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  lastTryOnName: {
+    fontSize: 16,
     fontWeight: "700",
     color: "#f5f5dc",
+    marginTop: 4,
   },
-  actionSub: {
-    fontSize: 13,
-    color: "#888",
+  lastTryOnTime: {
+    fontSize: 12,
+    color: "#555",
     marginTop: 6,
+  },
+  lastTryOnCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#f5f5dc",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 12,
+    alignSelf: "flex-start",
+  },
+  lastTryOnCtaText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0a0a0a",
   },
 
   // How it works
