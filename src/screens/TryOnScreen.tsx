@@ -413,7 +413,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
       const storedPhoto = await storage.loadFrontPhoto();
 
-      // Try 360° view first, then multi-angle, then single image
+      // Try 360° view first, fall back to single AI + client-side mirroring
       let frontImageB64: string | null = null;
 
       try {
@@ -430,7 +430,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
           setRecommendation(result360.recommendation as SizeRecommendation);
         }
       } catch {
-        // Fall back to multi-angle
+        // Fall back to multi-angle (front + back mirror from server)
         try {
           const multiResult = await api.tryon.aiMultiAngle({
             user_id: "user_1",
@@ -438,26 +438,38 @@ export default function TryOnScreen({ route, navigation }: Props) {
             photo: storedPhoto || undefined,
           });
 
-          setAngleImages(multiResult.images);
+          // Convert multi-angle images into 360° views for RotateViewer
+          const rotateViews: ViewFrame[] = [];
+          const front = multiResult.images?.find((i) => i.angle === "Front");
+          const side = multiResult.images?.find((i) => i.angle === "Side");
+          const back = multiResult.images?.find((i) => i.angle === "Back");
+
+          if (front) rotateViews.push({ angle_deg: 0, image_b64: front.image_b64 });
+          if (side) rotateViews.push({ angle_deg: 90, image_b64: side.image_b64 });
+          if (back) rotateViews.push({ angle_deg: 180, image_b64: back.image_b64 });
+
+          setViews360(rotateViews);
           setSelectedSize(multiResult.selected_size);
-          frontImageB64 = multiResult.images[0]?.image_b64 || null;
+          frontImageB64 = front?.image_b64 || multiResult.images?.[0]?.image_b64 || null;
           if (multiResult.recommendation) {
             setRecommendation(multiResult.recommendation as SizeRecommendation);
           }
         } catch {
-          // Fall back to single image
+          // Last resort: single image with front only
           const aiResult = await api.tryon.aiTryOn({
             user_id: "user_1",
             product_id: productId,
             photo: storedPhoto || undefined,
           });
 
-          setAngleImages([{ angle: "Front", image_b64: aiResult.image_b64 }]);
-          setSelectedSize(aiResult.selected_size);
           frontImageB64 = aiResult.image_b64;
+          setSelectedSize(aiResult.selected_size);
           if (aiResult.recommendation) {
             setRecommendation(aiResult.recommendation as SizeRecommendation);
           }
+
+          // Single view still uses RotateViewer (just no rotation)
+          setViews360([{ angle_deg: 0, image_b64: aiResult.image_b64 }]);
         }
       }
 
