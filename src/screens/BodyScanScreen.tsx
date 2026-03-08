@@ -44,11 +44,14 @@ export default function BodyScanScreen({ navigation }: Props) {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    storage.loadUnitSystem().then(setUnit);
+    const unsubscribe = navigation.addListener("focus", () => {
+      storage.loadUnitSystem().then(setUnit);
+    });
     return () => {
+      unsubscribe();
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
-  }, []);
+  }, [navigation]);
 
   const startCountdown = useCallback(() => {
     setCountdown(5);
