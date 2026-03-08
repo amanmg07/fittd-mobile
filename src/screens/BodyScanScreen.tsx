@@ -32,6 +32,9 @@ export default function BodyScanScreen({ navigation }: Props) {
   const [gender, setGender] = useState<Gender>("male");
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
+  const [heightFt, setHeightFt] = useState("");
+  const [heightIn, setHeightIn] = useState("");
+  const [weightLb, setWeightLb] = useState("");
   const [frontImage, setFrontImage] = useState<string | null>(null);
   const [sideImage, setSideImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,6 +83,23 @@ export default function BodyScanScreen({ navigation }: Props) {
     }
   };
 
+  const getHeightCm = (): number => {
+    if (unit === "metric") return parseFloat(heightCm);
+    const ft = parseFloat(heightFt) || 0;
+    const inches = parseFloat(heightIn) || 0;
+    return (ft * 12 + inches) * 2.54;
+  };
+
+  const getWeightKg = (): number => {
+    if (unit === "metric") return parseFloat(weightKg);
+    return parseFloat(weightLb) * 0.453592;
+  };
+
+  const hasValidInput = (): boolean => {
+    if (unit === "metric") return !!(heightCm && weightKg);
+    return !!(heightFt && weightLb);
+  };
+
   const processScan = async (sideB64: string) => {
     if (!frontImage) return;
     setLoading(true);
@@ -88,8 +108,8 @@ export default function BodyScanScreen({ navigation }: Props) {
       const profile = await api.body.scan({
         user_id: "user_1", // TODO: proper auth
         gender,
-        height_cm: parseFloat(heightCm),
-        weight_kg: parseFloat(weightKg),
+        height_cm: getHeightCm(),
+        weight_kg: getWeightKg(),
         front_image: frontImage,
         side_image: sideB64,
       });
@@ -164,23 +184,54 @@ export default function BodyScanScreen({ navigation }: Props) {
           ))}
         </View>
 
-        <Text style={styles.label}>Height (cm)</Text>
-        <TextInput
-          style={styles.input}
-          value={heightCm}
-          onChangeText={setHeightCm}
-          keyboardType="numeric"
-          placeholder="e.g. 178"
-          placeholderTextColor="#555"
-        />
+        <Text style={styles.label}>
+          {unit === "metric" ? "Height (cm)" : "Height"}
+        </Text>
+        {unit === "metric" ? (
+          <TextInput
+            style={styles.input}
+            value={heightCm}
+            onChangeText={setHeightCm}
+            keyboardType="numeric"
+            placeholder="e.g. 178"
+            placeholderTextColor="#555"
+          />
+        ) : (
+          <View style={styles.imperialRow}>
+            <View style={styles.imperialField}>
+              <TextInput
+                style={styles.input}
+                value={heightFt}
+                onChangeText={setHeightFt}
+                keyboardType="numeric"
+                placeholder="5"
+                placeholderTextColor="#555"
+              />
+              <Text style={styles.imperialUnit}>ft</Text>
+            </View>
+            <View style={styles.imperialField}>
+              <TextInput
+                style={styles.input}
+                value={heightIn}
+                onChangeText={setHeightIn}
+                keyboardType="numeric"
+                placeholder="10"
+                placeholderTextColor="#555"
+              />
+              <Text style={styles.imperialUnit}>in</Text>
+            </View>
+          </View>
+        )}
 
-        <Text style={styles.label}>Weight (kg)</Text>
+        <Text style={styles.label}>
+          {unit === "metric" ? "Weight (kg)" : "Weight (lb)"}
+        </Text>
         <TextInput
           style={styles.input}
-          value={weightKg}
-          onChangeText={setWeightKg}
+          value={unit === "metric" ? weightKg : weightLb}
+          onChangeText={unit === "metric" ? setWeightKg : setWeightLb}
           keyboardType="numeric"
-          placeholder="e.g. 75"
+          placeholder={unit === "metric" ? "e.g. 75" : "e.g. 165"}
           placeholderTextColor="#555"
         />
 
@@ -194,10 +245,10 @@ export default function BodyScanScreen({ navigation }: Props) {
         <TouchableOpacity
           style={[
             styles.button,
-            (!heightCm || !weightKg) && styles.buttonDisabled,
+            !hasValidInput() && styles.buttonDisabled,
           ]}
           onPress={() => setStep("front")}
-          disabled={!heightCm || !weightKg}
+          disabled={!hasValidInput()}
         >
           <Text style={styles.buttonText}>Start Scan</Text>
         </TouchableOpacity>
@@ -364,6 +415,21 @@ const styles = StyleSheet.create({
     color: "#f5f5dc",
     borderWidth: 1,
     borderColor: "#333",
+  },
+  imperialRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  imperialField: {
+    flex: 1,
+    position: "relative",
+  },
+  imperialUnit: {
+    position: "absolute",
+    right: 16,
+    top: 16,
+    fontSize: 16,
+    color: "#555",
   },
   genderRow: {
     flexDirection: "row",
