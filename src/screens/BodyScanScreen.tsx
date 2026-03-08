@@ -177,6 +177,13 @@ export default function BodyScanScreen({ navigation }: Props) {
           placeholderTextColor="#555"
         />
 
+        <View style={styles.tipBox}>
+          <Text style={styles.tipTitle}>For best results</Text>
+          <Text style={styles.tipText}>
+            Wear tight-fitting clothes (e.g. compression shirt, leggings) so the scan can accurately capture your body measurements.
+          </Text>
+        </View>
+
         <TouchableOpacity
           style={[
             styles.button,
@@ -336,12 +343,31 @@ const styles = StyleSheet.create({
   genderTextActive: {
     color: "#0a0a0a",
   },
+  tipBox: {
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: "#2a2a2a",
+  },
+  tipTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#f5f5dc",
+    marginBottom: 6,
+  },
+  tipText: {
+    fontSize: 14,
+    color: "#888",
+    lineHeight: 20,
+  },
   button: {
     backgroundColor: "#f5f5dc",
     borderRadius: 12,
     padding: 18,
     alignItems: "center",
-    marginTop: 32,
+    marginTop: 24,
   },
   buttonDisabled: {
     opacity: 0.3,
