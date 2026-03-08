@@ -284,6 +284,7 @@ function FitAnalysis({
 interface ViewFrame {
   angle_deg: number;
   image_b64: string;
+  mirror?: boolean;
 }
 
 function RotateViewer({ views, width }: { views: ViewFrame[]; width: number }) {
@@ -315,19 +316,24 @@ function RotateViewer({ views, width }: { views: ViewFrame[]; width: number }) {
 
   const currentView = views[currentIndex];
   const angleDeg = currentView.angle_deg;
+  const angleLabel = angleDeg === 0 ? "Front" : angleDeg === 180 ? "Back" : `${angleDeg}°`;
 
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       <Image
         source={{ uri: `data:image/png;base64,${currentView.image_b64}` }}
-        style={[styles.aiImage, { width }]}
+        style={[
+          styles.aiImage,
+          { width },
+          currentView.mirror ? { transform: [{ scaleX: -1 }] } : undefined,
+        ]}
         resizeMode="contain"
       />
       {/* Angle indicator */}
       <View style={styles.rotateIndicator}>
         <View style={styles.rotateAngleBadge}>
           <Ionicons name="sync-outline" size={14} color="#f5f5dc" />
-          <Text style={styles.rotateAngleText}>{angleDeg}°</Text>
+          <Text style={styles.rotateAngleText}>{angleLabel}</Text>
         </View>
         {/* Mini progress ring */}
         <View style={styles.rotateProgress}>
@@ -343,10 +349,12 @@ function RotateViewer({ views, width }: { views: ViewFrame[]; width: number }) {
         </View>
       </View>
       {/* Drag hint */}
-      <View style={styles.dragHint}>
-        <Ionicons name="hand-left-outline" size={14} color="#666" />
-        <Text style={styles.dragHintText}>Drag to rotate</Text>
-      </View>
+      {views.length > 1 && (
+        <View style={styles.dragHint}>
+          <Ionicons name="hand-left-outline" size={14} color="#666" />
+          <Text style={styles.dragHintText}>Drag to rotate</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -413,65 +421,26 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
       const storedPhoto = await storage.loadFrontPhoto();
 
-      // Try 360° view first, fall back to single AI + client-side mirroring
+      // Get AI try-on photo, then build front + back for rotation
       let frontImageB64: string | null = null;
 
-      try {
-        const result360 = await api.tryon.ai360({
-          user_id: "user_1",
-          product_id: productId,
-          photo: storedPhoto || undefined,
-        });
+      const aiResult = await api.tryon.aiTryOn({
+        user_id: "user_1",
+        product_id: productId,
+        photo: storedPhoto || undefined,
+      });
 
-        setViews360(result360.views);
-        setSelectedSize(result360.selected_size);
-        frontImageB64 = result360.views?.find((v) => v.angle_deg === 0)?.image_b64 || result360.views?.[0]?.image_b64 || null;
-        if (result360.recommendation) {
-          setRecommendation(result360.recommendation as SizeRecommendation);
-        }
-      } catch {
-        // Fall back to multi-angle (front + back mirror from server)
-        try {
-          const multiResult = await api.tryon.aiMultiAngle({
-            user_id: "user_1",
-            product_id: productId,
-            photo: storedPhoto || undefined,
-          });
-
-          // Convert multi-angle images into 360° views for RotateViewer
-          const rotateViews: ViewFrame[] = [];
-          const front = multiResult.images?.find((i) => i.angle === "Front");
-          const side = multiResult.images?.find((i) => i.angle === "Side");
-          const back = multiResult.images?.find((i) => i.angle === "Back");
-
-          if (front) rotateViews.push({ angle_deg: 0, image_b64: front.image_b64 });
-          if (side) rotateViews.push({ angle_deg: 90, image_b64: side.image_b64 });
-          if (back) rotateViews.push({ angle_deg: 180, image_b64: back.image_b64 });
-
-          setViews360(rotateViews);
-          setSelectedSize(multiResult.selected_size);
-          frontImageB64 = front?.image_b64 || multiResult.images?.[0]?.image_b64 || null;
-          if (multiResult.recommendation) {
-            setRecommendation(multiResult.recommendation as SizeRecommendation);
-          }
-        } catch {
-          // Last resort: single image with front only
-          const aiResult = await api.tryon.aiTryOn({
-            user_id: "user_1",
-            product_id: productId,
-            photo: storedPhoto || undefined,
-          });
-
-          frontImageB64 = aiResult.image_b64;
-          setSelectedSize(aiResult.selected_size);
-          if (aiResult.recommendation) {
-            setRecommendation(aiResult.recommendation as SizeRecommendation);
-          }
-
-          // Single view still uses RotateViewer (just no rotation)
-          setViews360([{ angle_deg: 0, image_b64: aiResult.image_b64 }]);
-        }
+      frontImageB64 = aiResult.image_b64;
+      setSelectedSize(aiResult.selected_size);
+      if (aiResult.recommendation) {
+        setRecommendation(aiResult.recommendation as SizeRecommendation);
       }
+
+      // Build front + mirrored back for drag-to-rotate
+      setViews360([
+        { angle_deg: 0, image_b64: aiResult.image_b64, mirror: false },
+        { angle_deg: 180, image_b64: aiResult.image_b64, mirror: true },
+      ]);
 
       // Load garment info & save last try-on
       try {
