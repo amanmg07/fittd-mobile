@@ -4,6 +4,15 @@ import { BodyProfile } from "../types";
 const PROFILE_KEY = "fittd_body_profile";
 const PHOTO_KEY = "fittd_front_photo";
 const SIDE_PHOTO_KEY = "fittd_side_photo";
+const RECENT_TRYONS_KEY = "fittd_recent_tryons";
+
+export interface RecentTryOn {
+  product_id: string;
+  name: string;
+  brand: string;
+  image_url: string;
+  timestamp: number;
+}
 
 export const storage = {
   async saveProfile(profile: BodyProfile): Promise<void> {
@@ -33,5 +42,17 @@ export const storage = {
 
   async loadSidePhoto(): Promise<string | null> {
     return await AsyncStorage.getItem(SIDE_PHOTO_KEY);
+  },
+
+  async addRecentTryOn(item: RecentTryOn): Promise<void> {
+    const existing = await this.loadRecentTryOns();
+    const filtered = existing.filter((t) => t.product_id !== item.product_id);
+    const updated = [item, ...filtered].slice(0, 10);
+    await AsyncStorage.setItem(RECENT_TRYONS_KEY, JSON.stringify(updated));
+  },
+
+  async loadRecentTryOns(): Promise<RecentTryOn[]> {
+    const data = await AsyncStorage.getItem(RECENT_TRYONS_KEY);
+    return data ? JSON.parse(data) : [];
   },
 };

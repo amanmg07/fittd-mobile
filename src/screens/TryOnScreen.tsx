@@ -116,6 +116,13 @@ export default function TryOnScreen({ route, navigation }: Props) {
       try {
         const garmentInfo = await api.garments.get(productId);
         setGarment(garmentInfo);
+        storage.addRecentTryOn({
+          product_id: garmentInfo.product_id,
+          name: garmentInfo.name,
+          brand: garmentInfo.brand,
+          image_url: garmentInfo.image_urls[0] || "",
+          timestamp: Date.now(),
+        });
       } catch {}
     } catch (error: any) {
       Alert.alert("AI Try-On Failed", error.message + "\nFalling back to 3D view.");
