@@ -123,5 +123,26 @@ export const api = {
         body: JSON.stringify(params),
       });
     },
+
+    aiMultiAngle(params: {
+      user_id: string;
+      product_id: string;
+      size?: string;
+      photo?: string;
+    }): Promise<{
+      images: { angle: string; image_b64: string }[];
+      selected_size: string;
+      recommendation: {
+        recommended_size: string;
+        confidence: number;
+        fit_notes: string[];
+        size_scores: Record<string, number>;
+      } | null;
+    }> {
+      return request("/api/tryon/ai/multi", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
   },
 };

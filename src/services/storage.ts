@@ -3,6 +3,7 @@ import { BodyProfile } from "../types";
 
 const PROFILE_KEY = "fittd_body_profile";
 const PHOTO_KEY = "fittd_front_photo";
+const SIDE_PHOTO_KEY = "fittd_side_photo";
 
 export const storage = {
   async saveProfile(profile: BodyProfile): Promise<void> {
@@ -24,5 +25,13 @@ export const storage = {
 
   async loadFrontPhoto(): Promise<string | null> {
     return await AsyncStorage.getItem(PHOTO_KEY);
+  },
+
+  async saveSidePhoto(base64: string): Promise<void> {
+    await AsyncStorage.setItem(SIDE_PHOTO_KEY, base64);
+  },
+
+  async loadSidePhoto(): Promise<string | null> {
+    return await AsyncStorage.getItem(SIDE_PHOTO_KEY);
   },
 };

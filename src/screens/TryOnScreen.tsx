@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   Image,
+  Dimensions,
+  FlatList,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { api } from "../services/api";
@@ -16,7 +18,14 @@ import { TryOnResult, GarmentInfo, SizeRecommendation } from "../types";
 
 const viewerHtml = require("./TryOnViewer.html");
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 type ViewMode = "ai" | "3d";
+
+interface AngleImage {
+  angle: string;
+  image_b64: string;
+}
 
 interface Props {
   route: { params: { productId: string } };
@@ -26,12 +35,14 @@ interface Props {
 export default function TryOnScreen({ route, navigation }: Props) {
   const { productId } = route.params;
   const webviewRef = useRef<WebView>(null);
+  const flatListRef = useRef<FlatList>(null);
   const [loading, setLoading] = useState(true);
   const [viewerReady, setViewerReady] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("ai");
 
-  // AI try-on state
-  const [aiImage, setAiImage] = useState<string | null>(null);
+  // Multi-angle AI try-on state
+  const [angleImages, setAngleImages] = useState<AngleImage[]>([]);
+  const [activeAngle, setActiveAngle] = useState(0);
   const [aiLoading, setAiLoading] = useState(false);
 
   // 3D try-on state
@@ -71,19 +82,34 @@ export default function TryOnScreen({ route, navigation }: Props) {
         return;
       }
 
-      // Use stored front photo from body scan
       const storedPhoto = await storage.loadFrontPhoto();
 
-      const aiResult = await api.tryon.aiTryOn({
-        user_id: "user_1",
-        product_id: productId,
-        photo: storedPhoto || undefined,
-      });
+      // Try multi-angle first
+      try {
+        const multiResult = await api.tryon.aiMultiAngle({
+          user_id: "user_1",
+          product_id: productId,
+          photo: storedPhoto || undefined,
+        });
 
-      setAiImage(aiResult.image_b64);
-      setSelectedSize(aiResult.selected_size);
-      if (aiResult.recommendation) {
-        setRecommendation(aiResult.recommendation as SizeRecommendation);
+        setAngleImages(multiResult.images);
+        setSelectedSize(multiResult.selected_size);
+        if (multiResult.recommendation) {
+          setRecommendation(multiResult.recommendation as SizeRecommendation);
+        }
+      } catch {
+        // Fall back to single image
+        const aiResult = await api.tryon.aiTryOn({
+          user_id: "user_1",
+          product_id: productId,
+          photo: storedPhoto || undefined,
+        });
+
+        setAngleImages([{ angle: "Front", image_b64: aiResult.image_b64 }]);
+        setSelectedSize(aiResult.selected_size);
+        if (aiResult.recommendation) {
+          setRecommendation(aiResult.recommendation as SizeRecommendation);
+        }
       }
 
       // Load garment info
@@ -157,7 +183,14 @@ export default function TryOnScreen({ route, navigation }: Props) {
     } catch {}
   };
 
-  if (loading && !aiImage && !result) {
+  const onAngleScroll = (event: any) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 32));
+    setActiveAngle(index);
+  };
+
+  const viewerWidth = SCREEN_WIDTH - 32;
+
+  if (loading && angleImages.length === 0 && !result) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#f5f5dc" />
@@ -195,12 +228,44 @@ export default function TryOnScreen({ route, navigation }: Props) {
       {/* Viewer area */}
       <View style={styles.viewer}>
         {viewMode === "ai" ? (
-          aiImage ? (
-            <Image
-              source={{ uri: `data:image/png;base64,${aiImage}` }}
-              style={styles.aiImage}
-              resizeMode="contain"
-            />
+          angleImages.length > 0 ? (
+            <View style={{ flex: 1 }}>
+              <FlatList
+                ref={flatListRef}
+                data={angleImages}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={onAngleScroll}
+                keyExtractor={(item) => item.angle}
+                renderItem={({ item }) => (
+                  <Image
+                    source={{ uri: `data:image/png;base64,${item.image_b64}` }}
+                    style={[styles.aiImage, { width: viewerWidth }]}
+                    resizeMode="contain"
+                  />
+                )}
+              />
+              {/* Angle indicator dots + label */}
+              {angleImages.length > 1 && (
+                <View style={styles.angleIndicator}>
+                  <Text style={styles.angleLabel}>
+                    {angleImages[activeAngle]?.angle}
+                  </Text>
+                  <View style={styles.dots}>
+                    {angleImages.map((_, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.dot,
+                          i === activeAngle && styles.dotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
           ) : (
             <View style={styles.viewerPlaceholder}>
               {aiLoading ? (
@@ -356,6 +421,37 @@ const styles = StyleSheet.create({
   aiImage: {
     flex: 1,
     backgroundColor: "#111",
+  },
+  angleIndicator: {
+    position: "absolute",
+    bottom: 12,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  angleLabel: {
+    color: "#f5f5dc",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 6,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  dots: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.3)",
+  },
+  dotActive: {
+    backgroundColor: "#f5f5dc",
   },
   viewerPlaceholder: {
     flex: 1,
