@@ -204,7 +204,7 @@ function FitAnalysis({
   recommendation: SizeRecommendation | null;
   unit: UnitSystem;
 }) {
-  const size = garment.sizes.find((s) => s.size_label === selectedSize);
+  const size = garment.sizes?.find((s) => s.size_label === selectedSize);
   if (!size) return null;
 
   const details = computeFitDetails(body, size);
@@ -425,7 +425,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
         setViews360(result360.views);
         setSelectedSize(result360.selected_size);
-        frontImageB64 = result360.views.find((v) => v.angle_deg === 0)?.image_b64 || result360.views[0]?.image_b64 || null;
+        frontImageB64 = result360.views?.find((v) => v.angle_deg === 0)?.image_b64 || result360.views?.[0]?.image_b64 || null;
         if (result360.recommendation) {
           setRecommendation(result360.recommendation as SizeRecommendation);
         }
@@ -673,10 +673,10 @@ export default function TryOnScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {garment?.sizes && (
+        {garment?.sizes?.length > 0 && (
           <View style={styles.sizeRow}>
             {garment.sizes.map((s) => {
-              const score = recommendation?.size_scores[s.size_label];
+              const score = recommendation?.size_scores?.[s.size_label];
               const isSelected = selectedSize === s.size_label;
               const isRecommended =
                 s.size_label === recommendation?.recommended_size;
