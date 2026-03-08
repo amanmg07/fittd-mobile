@@ -92,6 +92,7 @@ export const api = {
       user_id: string;
       product_id: string;
       size?: string;
+      photo?: string;
     }): Promise<TryOnResult> {
       return request("/api/tryon/", {
         method: "POST",

@@ -485,10 +485,12 @@ export default function TryOnScreen({ route, navigation }: Props) {
         return;
       }
 
+      const storedPhoto = await storage.loadFrontPhoto();
       const tryOnResult = await api.tryon.create({
         user_id: "user_1",
         product_id: productId,
         size,
+        photo: storedPhoto || undefined,
       });
       setResult(tryOnResult);
       setSelectedSize(tryOnResult.selected_size);
