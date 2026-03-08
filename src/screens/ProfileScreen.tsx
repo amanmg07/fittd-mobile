@@ -9,8 +9,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../services/api";
-import { storage, RecentTryOn } from "../services/storage";
+import { storage } from "../services/storage";
 import { BodyProfile } from "../types";
+
+type UnitSystem = "metric" | "imperial";
 
 interface Props {
   navigation: any;
@@ -22,15 +24,36 @@ interface MeasurementItem {
   value: string;
 }
 
+const cmToIn = (cm: number) => (cm / 2.54).toFixed(1);
+const kgToLb = (kg: number) => (kg * 2.20462).toFixed(1);
+
+function formatLength(cm: number, unit: UnitSystem): string {
+  return unit === "metric" ? `${cm} cm` : `${cmToIn(cm)} in`;
+}
+
+function formatWeight(kg: number, unit: UnitSystem): string {
+  return unit === "metric" ? `${kg} kg` : `${kgToLb(kg)} lb`;
+}
+
+function formatHeight(cm: number, unit: UnitSystem): string {
+  if (unit === "metric") return `${cm}`;
+  const totalIn = cm / 2.54;
+  const feet = Math.floor(totalIn / 12);
+  const inches = Math.round(totalIn % 12);
+  return `${feet}'${inches}"`;
+}
+
 export default function ProfileScreen({ navigation }: Props) {
   const [profile, setProfile] = useState<BodyProfile | null>(null);
   const [recentCount, setRecentCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [unit, setUnit] = useState<UnitSystem>("metric");
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       loadProfile();
       storage.loadRecentTryOns().then((r) => setRecentCount(r.length));
+      storage.loadUnitSystem().then(setUnit);
     });
     return unsubscribe;
   }, [navigation]);
@@ -50,6 +73,11 @@ export default function ProfileScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleUnit = (system: UnitSystem) => {
+    setUnit(system);
+    storage.saveUnitSystem(system);
   };
 
   if (loading) {
@@ -84,16 +112,16 @@ export default function ProfileScreen({ navigation }: Props) {
   const m = profile.measurements;
 
   const upperBody: MeasurementItem[] = [
-    { icon: "resize-outline", label: "Chest", value: `${m.chest} cm` },
-    { icon: "resize-outline", label: "Shoulders", value: `${m.shoulder_width} cm` },
-    { icon: "resize-outline", label: "Neck", value: `${m.neck} cm` },
-    { icon: "resize-outline", label: "Arm Length", value: `${m.arm_length} cm` },
+    { icon: "resize-outline", label: "Chest", value: formatLength(m.chest, unit) },
+    { icon: "resize-outline", label: "Shoulders", value: formatLength(m.shoulder_width, unit) },
+    { icon: "resize-outline", label: "Neck", value: formatLength(m.neck, unit) },
+    { icon: "resize-outline", label: "Arm Length", value: formatLength(m.arm_length, unit) },
   ];
 
   const lowerBody: MeasurementItem[] = [
-    { icon: "resize-outline", label: "Waist", value: `${m.waist} cm` },
-    { icon: "resize-outline", label: "Hips", value: `${m.hips} cm` },
-    { icon: "resize-outline", label: "Torso", value: `${m.torso_length} cm` },
+    { icon: "resize-outline", label: "Waist", value: formatLength(m.waist, unit) },
+    { icon: "resize-outline", label: "Hips", value: formatLength(m.hips, unit) },
+    { icon: "resize-outline", label: "Torso", value: formatLength(m.torso_length, unit) },
   ];
 
   return (
@@ -118,16 +146,38 @@ export default function ProfileScreen({ navigation }: Props) {
         </View>
       </View>
 
+      {/* Unit toggle */}
+      <View style={styles.unitToggle}>
+        <TouchableOpacity
+          style={[styles.unitButton, unit === "metric" && styles.unitButtonActive]}
+          onPress={() => toggleUnit("metric")}
+        >
+          <Text style={[styles.unitText, unit === "metric" && styles.unitTextActive]}>
+            Metric (cm, kg)
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.unitButton, unit === "imperial" && styles.unitButtonActive]}
+          onPress={() => toggleUnit("imperial")}
+        >
+          <Text style={[styles.unitText, unit === "imperial" && styles.unitTextActive]}>
+            Imperial (in, lb)
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Stats overview */}
       <View style={styles.statsRow}>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>{m.height}</Text>
-          <Text style={styles.statUnit}>cm</Text>
+          <Text style={styles.statValue}>{formatHeight(m.height, unit)}</Text>
+          <Text style={styles.statUnit}>{unit === "metric" ? "cm" : ""}</Text>
           <Text style={styles.statLabel}>Height</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>{m.weight}</Text>
-          <Text style={styles.statUnit}>kg</Text>
+          <Text style={styles.statValue}>
+            {unit === "metric" ? m.weight : kgToLb(m.weight)}
+          </Text>
+          <Text style={styles.statUnit}>{unit === "metric" ? "kg" : "lb"}</Text>
           <Text style={styles.statLabel}>Weight</Text>
         </View>
         <View style={styles.statBox}>
@@ -263,7 +313,7 @@ const styles = StyleSheet.create({
   profileHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   avatarCircle: {
     width: 56,
@@ -296,6 +346,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#f5f5dc",
     fontWeight: "600",
+  },
+
+  // Unit toggle
+  unitToggle: {
+    flexDirection: "row",
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  unitButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 10,
+  },
+  unitButtonActive: {
+    backgroundColor: "#f5f5dc",
+  },
+  unitText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#888",
+  },
+  unitTextActive: {
+    color: "#0a0a0a",
   },
 
   // Stats

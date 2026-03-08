@@ -5,6 +5,7 @@ const PROFILE_KEY = "fittd_body_profile";
 const PHOTO_KEY = "fittd_front_photo";
 const SIDE_PHOTO_KEY = "fittd_side_photo";
 const RECENT_TRYONS_KEY = "fittd_recent_tryons";
+const UNIT_SYSTEM_KEY = "fittd_unit_system";
 
 export interface RecentTryOn {
   product_id: string;
@@ -42,6 +43,15 @@ export const storage = {
 
   async loadSidePhoto(): Promise<string | null> {
     return await AsyncStorage.getItem(SIDE_PHOTO_KEY);
+  },
+
+  async saveUnitSystem(system: "metric" | "imperial"): Promise<void> {
+    await AsyncStorage.setItem(UNIT_SYSTEM_KEY, system);
+  },
+
+  async loadUnitSystem(): Promise<"metric" | "imperial"> {
+    const val = await AsyncStorage.getItem(UNIT_SYSTEM_KEY);
+    return val === "imperial" ? "imperial" : "metric";
   },
 
   async addRecentTryOn(item: RecentTryOn): Promise<void> {
