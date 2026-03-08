@@ -144,5 +144,26 @@ export const api = {
         body: JSON.stringify(params),
       });
     },
+
+    ai360(params: {
+      user_id: string;
+      product_id: string;
+      size?: string;
+      photo?: string;
+    }): Promise<{
+      views: { angle_deg: number; image_b64: string }[];
+      selected_size: string;
+      recommendation: {
+        recommended_size: string;
+        confidence: number;
+        fit_notes: string[];
+        size_scores: Record<string, number>;
+      } | null;
+    }> {
+      return request("/api/tryon/ai/360", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
   },
 };

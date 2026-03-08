@@ -11,6 +11,7 @@ import {
   Dimensions,
   FlatList,
   Animated,
+  PanResponder,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
@@ -273,6 +274,78 @@ function FitAnalysis({
   );
 }
 
+// --- Drag-to-Rotate 360° Viewer ---
+
+interface ViewFrame {
+  angle_deg: number;
+  image_b64: string;
+}
+
+function RotateViewer({ views, width }: { views: ViewFrame[]; width: number }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const lastX = useRef(0);
+  const indexRef = useRef(0);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 5,
+      onPanResponderGrant: (_, gs) => {
+        lastX.current = gs.x0;
+      },
+      onPanResponderMove: (_, gs) => {
+        const dx = gs.moveX - lastX.current;
+        // Every 20px of drag = 1 frame
+        const frameDelta = Math.round(dx / 20);
+        if (frameDelta !== 0) {
+          lastX.current = gs.moveX;
+          indexRef.current = ((indexRef.current + frameDelta) % views.length + views.length) % views.length;
+          setCurrentIndex(indexRef.current);
+        }
+      },
+    })
+  ).current;
+
+  if (views.length === 0) return null;
+
+  const currentView = views[currentIndex];
+  const angleDeg = currentView.angle_deg;
+
+  return (
+    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+      <Image
+        source={{ uri: `data:image/png;base64,${currentView.image_b64}` }}
+        style={[styles.aiImage, { width }]}
+        resizeMode="contain"
+      />
+      {/* Angle indicator */}
+      <View style={styles.rotateIndicator}>
+        <View style={styles.rotateAngleBadge}>
+          <Ionicons name="sync-outline" size={14} color="#f5f5dc" />
+          <Text style={styles.rotateAngleText}>{angleDeg}°</Text>
+        </View>
+        {/* Mini progress ring */}
+        <View style={styles.rotateProgress}>
+          {views.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.rotateTick,
+                i === currentIndex && styles.rotateTickActive,
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+      {/* Drag hint */}
+      <View style={styles.dragHint}>
+        <Ionicons name="hand-left-outline" size={14} color="#666" />
+        <Text style={styles.dragHintText}>Drag to rotate</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function TryOnScreen({ route, navigation }: Props) {
   const { productId } = route.params;
   const webviewRef = useRef<WebView>(null);
@@ -285,6 +358,10 @@ export default function TryOnScreen({ route, navigation }: Props) {
   const [angleImages, setAngleImages] = useState<AngleImage[]>([]);
   const [activeAngle, setActiveAngle] = useState(0);
   const [aiLoading, setAiLoading] = useState(false);
+
+  // 360° views state
+  const [views360, setViews360] = useState<ViewFrame[]>([]);
+  const [loading360, setLoading360] = useState(false);
 
   // 3D try-on state
   const [result, setResult] = useState<TryOnResult | null>(null);
@@ -327,31 +404,46 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
       const storedPhoto = await storage.loadFrontPhoto();
 
-      // Try multi-angle first
+      // Try 360° view first, then multi-angle, then single image
       try {
-        const multiResult = await api.tryon.aiMultiAngle({
+        const result360 = await api.tryon.ai360({
           user_id: "user_1",
           product_id: productId,
           photo: storedPhoto || undefined,
         });
 
-        setAngleImages(multiResult.images);
-        setSelectedSize(multiResult.selected_size);
-        if (multiResult.recommendation) {
-          setRecommendation(multiResult.recommendation as SizeRecommendation);
+        setViews360(result360.views);
+        setSelectedSize(result360.selected_size);
+        if (result360.recommendation) {
+          setRecommendation(result360.recommendation as SizeRecommendation);
         }
       } catch {
-        // Fall back to single image
-        const aiResult = await api.tryon.aiTryOn({
-          user_id: "user_1",
-          product_id: productId,
-          photo: storedPhoto || undefined,
-        });
+        // Fall back to multi-angle
+        try {
+          const multiResult = await api.tryon.aiMultiAngle({
+            user_id: "user_1",
+            product_id: productId,
+            photo: storedPhoto || undefined,
+          });
 
-        setAngleImages([{ angle: "Front", image_b64: aiResult.image_b64 }]);
-        setSelectedSize(aiResult.selected_size);
-        if (aiResult.recommendation) {
-          setRecommendation(aiResult.recommendation as SizeRecommendation);
+          setAngleImages(multiResult.images);
+          setSelectedSize(multiResult.selected_size);
+          if (multiResult.recommendation) {
+            setRecommendation(multiResult.recommendation as SizeRecommendation);
+          }
+        } catch {
+          // Fall back to single image
+          const aiResult = await api.tryon.aiTryOn({
+            user_id: "user_1",
+            product_id: productId,
+            photo: storedPhoto || undefined,
+          });
+
+          setAngleImages([{ angle: "Front", image_b64: aiResult.image_b64 }]);
+          setSelectedSize(aiResult.selected_size);
+          if (aiResult.recommendation) {
+            setRecommendation(aiResult.recommendation as SizeRecommendation);
+          }
         }
       }
 
@@ -440,7 +532,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
   const viewerWidth = SCREEN_WIDTH - 32;
 
-  if (loading && angleImages.length === 0 && !result) {
+  if (loading && angleImages.length === 0 && views360.length === 0 && !result) {
     return <LoadingScreen viewMode={viewMode} />;
   }
 
@@ -469,7 +561,9 @@ export default function TryOnScreen({ route, navigation }: Props) {
       {/* Viewer area */}
       <View style={styles.viewer}>
         {viewMode === "ai" ? (
-          angleImages.length > 0 ? (
+          views360.length > 0 ? (
+            <RotateViewer views={views360} width={viewerWidth} />
+          ) : angleImages.length > 0 ? (
             <View style={{ flex: 1 }}>
               <FlatList
                 ref={flatListRef}
@@ -715,6 +809,59 @@ const styles = StyleSheet.create({
   aiImage: {
     flex: 1,
     backgroundColor: "#111",
+  },
+  // 360° rotate viewer
+  rotateIndicator: {
+    position: "absolute",
+    bottom: 12,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  rotateAngleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 6,
+  },
+  rotateAngleText: {
+    color: "#f5f5dc",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  rotateProgress: {
+    flexDirection: "row",
+    gap: 3,
+  },
+  rotateTick: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  rotateTickActive: {
+    backgroundColor: "#f5f5dc",
+    width: 12,
+  },
+  dragHint: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  dragHintText: {
+    color: "#666",
+    fontSize: 12,
   },
   angleIndicator: {
     position: "absolute",
