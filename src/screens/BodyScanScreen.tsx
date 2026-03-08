@@ -9,11 +9,15 @@ import {
   Image,
   TextInput,
   ScrollView,
+  Dimensions,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { api } from "../services/api";
 import { storage } from "../services/storage";
 import { Gender } from "../types";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type ScanStep = "info" | "front" | "side" | "processing" | "done";
 
@@ -207,23 +211,63 @@ export default function BodyScanScreen({ navigation }: Props) {
           facing="front"
         >
           <View style={styles.overlay}>
-            <View style={styles.silhouetteGuide} />
+            {/* Guide frame */}
+            <View style={styles.guideFrame}>
+              {/* Corner markers */}
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
+
+              {/* Body silhouette hint */}
+              <View style={styles.silhouetteGuide}>
+                <Ionicons
+                  name={step === "front" ? "body-outline" : "body-outline"}
+                  size={180}
+                  color="rgba(245, 245, 220, 0.15)"
+                />
+              </View>
+            </View>
+
+            {/* Instructions */}
             {countdown !== null ? (
               <Text style={styles.countdownText}>{countdown}</Text>
             ) : (
-              <Text style={styles.instructionText}>
-                {step === "front"
-                  ? "Stand facing the camera\nArms slightly away from body"
-                  : "Turn 90 degrees to your right\nKeep arms slightly out"}
-              </Text>
+              <View style={styles.instructionBox}>
+                <Ionicons
+                  name={step === "front" ? "person-outline" : "sync-outline"}
+                  size={20}
+                  color="#f5f5dc"
+                />
+                <Text style={styles.instructionText}>
+                  {step === "front"
+                    ? "Stand facing the camera\nArms slightly away from body"
+                    : "Turn 90° to your right\nKeep arms slightly out"}
+                </Text>
+              </View>
+            )}
+
+            {/* Distance hint */}
+            {countdown === null && (
+              <View style={styles.distanceHint}>
+                <Ionicons name="resize-outline" size={14} color="#888" />
+                <Text style={styles.distanceText}>Stand 6–8 feet from camera</Text>
+              </View>
             )}
           </View>
         </CameraView>
 
         <View style={styles.captureBar}>
+          {/* Step indicator with progress */}
+          <View style={styles.stepProgress}>
+            <View style={[styles.stepDot, styles.stepDotActive]} />
+            <View style={[styles.stepConnector, step === "side" && styles.stepConnectorActive]} />
+            <View style={[styles.stepDot, step === "side" && styles.stepDotActive]} />
+          </View>
           <Text style={styles.stepIndicator}>
-            {step === "front" ? "1/2 — Front View" : "2/2 — Side View"}
+            {step === "front" ? "Front View" : "Side View"}
           </Text>
+
           {countdown !== null ? (
             <View style={[styles.captureButton, styles.captureButtonCountdown]}>
               <Text style={styles.captureCountdownText}>{countdown}</Text>
@@ -395,29 +439,114 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  guideFrame: {
+    width: SCREEN_WIDTH * 0.6,
+    height: SCREEN_WIDTH * 1.3,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  corner: {
+    position: "absolute",
+    width: 24,
+    height: 24,
+    borderColor: "#f5f5dc",
+  },
+  cornerTL: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 8,
+  },
+  cornerTR: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 8,
+  },
+  cornerBL: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 8,
+  },
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 8,
+  },
   silhouetteGuide: {
-    width: 200,
-    height: 500,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
-    borderRadius: 100,
-    borderStyle: "dashed",
+    opacity: 0.8,
+  },
+  instructionBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 20,
   },
   instructionText: {
     color: "#f5f5dc",
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 24,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  distanceHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  distanceText: {
+    color: "#888",
+    fontSize: 12,
   },
   captureBar: {
     backgroundColor: "#0a0a0a",
     paddingVertical: 24,
     alignItems: "center",
   },
+  stepProgress: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 0,
+    marginBottom: 10,
+  },
+  stepDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#2a2a2a",
+    borderWidth: 2,
+    borderColor: "#333",
+  },
+  stepDotActive: {
+    backgroundColor: "#f5f5dc",
+    borderColor: "#f5f5dc",
+  },
+  stepConnector: {
+    width: 40,
+    height: 2,
+    backgroundColor: "#2a2a2a",
+  },
+  stepConnectorActive: {
+    backgroundColor: "#f5f5dc",
+  },
   stepIndicator: {
-    color: "#888",
+    color: "#f5f5dc",
     fontSize: 14,
+    fontWeight: "600",
     marginBottom: 16,
   },
   captureButton: {

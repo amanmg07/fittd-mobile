@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,9 @@ import {
   Image,
   Dimensions,
   FlatList,
+  Animated,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
 import { api } from "../services/api";
 import { storage } from "../services/storage";
@@ -30,6 +32,71 @@ interface AngleImage {
 interface Props {
   route: { params: { productId: string } };
   navigation: any;
+}
+
+const LOADING_TIPS = [
+  { icon: "sparkles-outline" as const, text: "Our AI is fitting the garment to your body shape" },
+  { icon: "body-outline" as const, text: "We use your exact measurements for a realistic fit" },
+  { icon: "resize-outline" as const, text: "Swipe through multiple angles when ready" },
+  { icon: "shirt-outline" as const, text: "Try different sizes to compare the fit" },
+  { icon: "color-palette-outline" as const, text: "Colors may vary slightly from the actual product" },
+];
+
+function LoadingScreen({ viewMode }: { viewMode: ViewMode }) {
+  const [tipIndex, setTipIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Pulse animation for the icon
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+
+    // Rotate tips every 4 seconds
+    const interval = setInterval(() => {
+      Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+        setTipIndex((prev) => (prev + 1) % LOADING_TIPS.length);
+        Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      });
+    }, 4000);
+
+    return () => {
+      pulse.stop();
+      clearInterval(interval);
+    };
+  }, []);
+
+  const tip = LOADING_TIPS[tipIndex];
+
+  return (
+    <View style={styles.loadingContainer}>
+      <Animated.View style={[styles.loadingIconCircle, { transform: [{ scale: pulseAnim }] }]}>
+        <Ionicons name="shirt-outline" size={40} color="#f5f5dc" />
+      </Animated.View>
+      <Text style={styles.loadingTitle}>
+        {viewMode === "ai" ? "Generating AI Try-On" : "Building 3D Model"}
+      </Text>
+      <Text style={styles.loadingSubtitle}>This usually takes 30–60 seconds</Text>
+
+      {/* Progress dots */}
+      <View style={styles.loadingDots}>
+        {LOADING_TIPS.map((_, i) => (
+          <View key={i} style={[styles.loadingDot, i === tipIndex && styles.loadingDotActive]} />
+        ))}
+      </View>
+
+      {/* Rotating tips */}
+      <Animated.View style={[styles.tipContainer, { opacity: fadeAnim }]}>
+        <Ionicons name={tip.icon} size={20} color="#888" />
+        <Text style={styles.tipText}>{tip.text}</Text>
+      </Animated.View>
+    </View>
+  );
 }
 
 export default function TryOnScreen({ route, navigation }: Props) {
@@ -198,16 +265,7 @@ export default function TryOnScreen({ route, navigation }: Props) {
   const viewerWidth = SCREEN_WIDTH - 32;
 
   if (loading && angleImages.length === 0 && !result) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#f5f5dc" />
-        <Text style={styles.loadingText}>
-          {viewMode === "ai"
-            ? "Generating AI try-on...\nThis may take 30-60 seconds"
-            : "Generating your virtual try-on..."}
-        </Text>
-      </View>
-    );
+    return <LoadingScreen viewMode={viewMode} />;
   }
 
   return (
@@ -384,13 +442,57 @@ const styles = StyleSheet.create({
     backgroundColor: "#0a0a0a",
     justifyContent: "center",
     alignItems: "center",
+    padding: 32,
   },
-  loadingText: {
-    color: "#888",
-    marginTop: 16,
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
+  loadingIconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "#1a1a1a",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  loadingTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#f5f5dc",
+    marginBottom: 8,
+  },
+  loadingSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 24,
+  },
+  loadingDots: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 32,
+  },
+  loadingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#2a2a2a",
+  },
+  loadingDotActive: {
+    backgroundColor: "#f5f5dc",
+    width: 20,
+  },
+  tipContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#1a1a1a",
+    borderRadius: 12,
+    padding: 16,
+    paddingHorizontal: 20,
+  },
+  tipText: {
+    fontSize: 14,
+    color: "#aaa",
+    flex: 1,
+    lineHeight: 20,
   },
   modeToggle: {
     flexDirection: "row",
