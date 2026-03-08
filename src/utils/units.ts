@@ -3,28 +3,33 @@ export type UnitSystem = "metric" | "imperial";
 const CM_PER_INCH = 2.54;
 const KG_PER_LB = 0.453592;
 
+/** Round to 1 decimal place, drop trailing .0 */
+function r1(n: number): string {
+  const fixed = n.toFixed(1);
+  return fixed.endsWith(".0") ? fixed.slice(0, -2) : fixed;
+}
+
 export function cmToIn(cm: number): string {
-  return (cm / CM_PER_INCH).toFixed(1);
+  return r1(cm / CM_PER_INCH);
 }
 
 export function kgToLb(kg: number): string {
-  return (kg / KG_PER_LB).toFixed(1);
+  return r1(kg / KG_PER_LB);
 }
 
 export function formatLength(cm: number, unit: UnitSystem): string {
-  return unit === "metric" ? `${cm} cm` : `${cmToIn(cm)} in`;
+  return unit === "metric" ? `${r1(cm)} cm` : `${cmToIn(cm)} in`;
 }
 
 export function formatWeight(kg: number, unit: UnitSystem): string {
-  return unit === "metric" ? `${kg} kg` : `${kgToLb(kg)} lb`;
+  return unit === "metric" ? `${r1(kg)} kg` : `${kgToLb(kg)} lb`;
 }
 
 export function formatHeight(cm: number, unit: UnitSystem): string {
-  if (unit === "metric") return `${cm}`;
+  if (unit === "metric") return r1(cm);
   const totalIn = cm / CM_PER_INCH;
   const feet = Math.floor(totalIn / 12);
   const inches = Math.round(totalIn % 12);
-  // Handle rounding to 12 inches (e.g. 5'12" → 6'0")
   if (inches === 12) {
     return `${feet + 1}'0"`;
   }
@@ -32,7 +37,7 @@ export function formatHeight(cm: number, unit: UnitSystem): string {
 }
 
 export function formatLengthValue(cm: number, unit: UnitSystem): string {
-  return unit === "metric" ? `${cm}` : cmToIn(cm);
+  return unit === "metric" ? r1(cm) : cmToIn(cm);
 }
 
 export function lengthUnit(unit: UnitSystem): string {
@@ -44,5 +49,5 @@ export function weightUnit(unit: UnitSystem): string {
 }
 
 export function formatWeightValue(kg: number, unit: UnitSystem): string {
-  return unit === "metric" ? `${kg}` : kgToLb(kg);
+  return unit === "metric" ? r1(kg) : kgToLb(kg);
 }
