@@ -3,45 +3,21 @@ import { StatusBar } from "expo-status-bar";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { View, Text, StyleSheet } from "react-native";
-
 import HomeScreen from "./src/screens/HomeScreen";
 import BrowseScreen from "./src/screens/BrowseScreen";
 import BodyScanScreen from "./src/screens/BodyScanScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import { Ionicons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    Home: "⌂",
-    Browse: "⊞",
-    Scan: "◎",
-    Profile: "○",
-  };
-  return (
-    <View style={tabStyles.iconContainer}>
-      <Text style={[tabStyles.icon, focused && tabStyles.iconFocused]}>
-        {icons[label] || "·"}
-      </Text>
-    </View>
-  );
-}
-
-const tabStyles = StyleSheet.create({
-  iconContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  icon: {
-    fontSize: 22,
-    color: "#555",
-  },
-  iconFocused: {
-    color: "#f5f5dc",
-  },
-});
+const TAB_ICONS: Record<string, { focused: keyof typeof Ionicons.glyphMap; unfocused: keyof typeof Ionicons.glyphMap }> = {
+  Home: { focused: "home", unfocused: "home-outline" },
+  Browse: { focused: "search", unfocused: "search-outline" },
+  Scan: { focused: "body", unfocused: "body-outline" },
+  Profile: { focused: "person", unfocused: "person-outline" },
+};
 
 function TabNavigator() {
   return (
@@ -64,9 +40,16 @@ function TabNavigator() {
           fontSize: 11,
           fontWeight: "600",
         },
-        tabBarIcon: ({ focused }) => (
-          <TabIcon label={route.name} focused={focused} />
-        ),
+        tabBarIcon: ({ focused, color, size }) => {
+          const icons = TAB_ICONS[route.name] || TAB_ICONS.Home;
+          return (
+            <Ionicons
+              name={focused ? icons.focused : icons.unfocused}
+              size={24}
+              color={color}
+            />
+          );
+        },
       })}
     >
       <Tab.Screen
