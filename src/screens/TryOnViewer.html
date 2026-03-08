@@ -33,29 +33,50 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 0, 2.5);
+scene.background = new THREE.Color(0x111111);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.01, 100);
+camera.position.set(0, 0, 2.8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setClearColor(0x111111);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.dampingFactor = 0.05;
+controls.dampingFactor = 0.08;
 controls.enablePan = false;
-controls.minDistance = 1;
+controls.minDistance = 0.8;
 controls.maxDistance = 5;
+controls.target.set(0, 0, 0);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(5, 5, 5);
-scene.add(dirLight);
-const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-fillLight.position.set(-5, 3, -5);
+// Lighting setup for textured models
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+
+// Key light (front-right, above)
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
+keyLight.position.set(3, 5, 4);
+scene.add(keyLight);
+
+// Fill light (front-left)
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+fillLight.position.set(-3, 3, 2);
 scene.add(fillLight);
+
+// Rim light (behind, for edge definition)
+const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
+rimLight.position.set(0, 3, -4);
+scene.add(rimLight);
+
+// Soft bottom fill
+const bottomLight = new THREE.DirectionalLight(0xccccff, 0.15);
+bottomLight.position.set(0, -2, 0);
+scene.add(bottomLight);
 
 let model = null;
 
@@ -73,6 +94,20 @@ function loadModel(url) {
         if (model) scene.remove(model);
 
         model = gltf.scene;
+
+        // Ensure textures render properly
+        model.traverse((child) => {
+          if (child.isMesh) {
+            if (child.material) {
+              child.material.side = THREE.DoubleSide;
+              if (child.material.map) {
+                child.material.map.colorSpace = THREE.SRGBColorSpace;
+              }
+            }
+          }
+        });
+
+        // Center and scale
         const box = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
@@ -80,6 +115,10 @@ function loadModel(url) {
 
         const maxDim = Math.max(size.x, size.y, size.z);
         if (maxDim > 0) model.scale.setScalar(1.5 / maxDim);
+
+        // Set orbit target to model center
+        controls.target.set(0, 0, 0);
+        controls.update();
 
         scene.add(model);
         document.getElementById('loading').style.display = 'none';
