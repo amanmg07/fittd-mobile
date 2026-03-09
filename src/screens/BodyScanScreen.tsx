@@ -120,6 +120,7 @@ export default function BodyScanScreen({ navigation }: Props) {
       await storage.saveProfile(profile);
       await storage.saveFrontPhoto(frontImage);
       await storage.saveSidePhoto(sideB64);
+      await storage.addScanToHistory(profile, frontImage);
       setStep("done");
       Alert.alert(
         "Scan Complete",

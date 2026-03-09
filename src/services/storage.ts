@@ -7,6 +7,7 @@ const SIDE_PHOTO_KEY = "fittd_side_photo";
 const RECENT_TRYONS_KEY = "fittd_recent_tryons";
 const UNIT_SYSTEM_KEY = "fittd_unit_system";
 const LAST_TRYON_KEY = "fittd_last_tryon";
+const SCAN_HISTORY_KEY = "fittd_scan_history";
 
 export interface LastTryOn {
   product_id: string;
@@ -22,6 +23,13 @@ export interface RecentTryOn {
   brand: string;
   image_url: string;
   timestamp: number;
+}
+
+export interface ScanHistoryItem {
+  id: string;
+  timestamp: number;
+  profile: BodyProfile;
+  thumbnail_b64: string | null;
 }
 
 export const storage = {
@@ -81,6 +89,23 @@ export const storage = {
 
   async loadRecentTryOns(): Promise<RecentTryOn[]> {
     const data = await AsyncStorage.getItem(RECENT_TRYONS_KEY);
+    return data ? JSON.parse(data) : [];
+  },
+
+  async addScanToHistory(profile: BodyProfile, thumbnail_b64: string | null): Promise<void> {
+    const existing = await this.loadScanHistory();
+    const item: ScanHistoryItem = {
+      id: `scan_${Date.now()}`,
+      timestamp: Date.now(),
+      profile,
+      thumbnail_b64,
+    };
+    const updated = [item, ...existing].slice(0, 20);
+    await AsyncStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(updated));
+  },
+
+  async loadScanHistory(): Promise<ScanHistoryItem[]> {
+    const data = await AsyncStorage.getItem(SCAN_HISTORY_KEY);
     return data ? JSON.parse(data) : [];
   },
 };
