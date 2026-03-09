@@ -9,9 +9,7 @@ import {
   Alert,
   Image,
   Dimensions,
-  FlatList,
   Animated,
-  PanResponder,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
@@ -25,11 +23,6 @@ const viewerHtml = require("./TryOnViewer.html");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type ViewMode = "ai" | "3d";
-
-interface AngleImage {
-  angle: string;
-  image_b64: string;
-}
 
 interface Props {
   route: { params: { productId: string } };
@@ -279,102 +272,16 @@ function FitAnalysis({
   );
 }
 
-// --- Drag-to-Rotate 360° Viewer ---
-
-interface ViewFrame {
-  angle_deg: number;
-  image_b64: string;
-  mirror?: boolean;
-}
-
-function RotateViewer({ views, width }: { views: ViewFrame[]; width: number }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const lastX = useRef(0);
-  const indexRef = useRef(0);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 5,
-      onPanResponderGrant: (_, gs) => {
-        lastX.current = gs.x0;
-      },
-      onPanResponderMove: (_, gs) => {
-        const dx = gs.moveX - lastX.current;
-        // Every 20px of drag = 1 frame
-        const frameDelta = Math.round(dx / 20);
-        if (frameDelta !== 0) {
-          lastX.current = gs.moveX;
-          indexRef.current = ((indexRef.current + frameDelta) % views.length + views.length) % views.length;
-          setCurrentIndex(indexRef.current);
-        }
-      },
-    })
-  ).current;
-
-  if (views.length === 0) return null;
-
-  const currentView = views[currentIndex];
-  const angleDeg = currentView.angle_deg;
-  const angleLabel = angleDeg === 0 ? "Front" : angleDeg === 180 ? "Back" : `${angleDeg}°`;
-
-  return (
-    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-      <Image
-        source={{ uri: `data:image/png;base64,${currentView.image_b64}` }}
-        style={[
-          styles.aiImage,
-          { width },
-          currentView.mirror ? { transform: [{ scaleX: -1 }] } : undefined,
-        ]}
-        resizeMode="contain"
-      />
-      {/* Angle indicator */}
-      <View style={styles.rotateIndicator}>
-        <View style={styles.rotateAngleBadge}>
-          <Ionicons name="sync-outline" size={14} color="#f5f5dc" />
-          <Text style={styles.rotateAngleText}>{angleLabel}</Text>
-        </View>
-        {/* Mini progress ring */}
-        <View style={styles.rotateProgress}>
-          {views.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.rotateTick,
-                i === currentIndex && styles.rotateTickActive,
-              ]}
-            />
-          ))}
-        </View>
-      </View>
-      {/* Drag hint */}
-      {views.length > 1 && (
-        <View style={styles.dragHint}>
-          <Ionicons name="hand-left-outline" size={14} color="#666" />
-          <Text style={styles.dragHintText}>Drag to rotate</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
 export default function TryOnScreen({ route, navigation }: Props) {
   const { productId } = route.params;
   const webviewRef = useRef<WebView>(null);
-  const flatListRef = useRef<FlatList>(null);
   const [loading, setLoading] = useState(true);
   const [viewerReady, setViewerReady] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("ai");
 
-  // Multi-angle AI try-on state
-  const [angleImages, setAngleImages] = useState<AngleImage[]>([]);
-  const [activeAngle, setActiveAngle] = useState(0);
+  // AI try-on image
+  const [aiImageB64, setAiImageB64] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-
-  // 360° views state
-  const [views360, setViews360] = useState<ViewFrame[]>([]);
-  const [loading360, setLoading360] = useState(false);
 
   // Unit preference
   const [unit, setUnit] = useState<UnitSystem>("metric");
@@ -421,26 +328,17 @@ export default function TryOnScreen({ route, navigation }: Props) {
 
       const storedPhoto = await storage.loadFrontPhoto();
 
-      // Get AI try-on photo, then build front + back for rotation
-      let frontImageB64: string | null = null;
-
       const aiResult = await api.tryon.aiTryOn({
         user_id: "user_1",
         product_id: productId,
         photo: storedPhoto || undefined,
       });
 
-      frontImageB64 = aiResult.image_b64;
+      setAiImageB64(aiResult.image_b64);
       setSelectedSize(aiResult.selected_size);
       if (aiResult.recommendation) {
         setRecommendation(aiResult.recommendation as SizeRecommendation);
       }
-
-      // Build front + mirrored back for drag-to-rotate
-      setViews360([
-        { angle_deg: 0, image_b64: aiResult.image_b64, mirror: false },
-        { angle_deg: 180, image_b64: aiResult.image_b64, mirror: true },
-      ]);
 
       // Load garment info & save last try-on
       try {
@@ -453,15 +351,13 @@ export default function TryOnScreen({ route, navigation }: Props) {
           image_url: garmentInfo.image_urls[0] || "",
           timestamp: Date.now(),
         });
-        if (frontImageB64) {
-          storage.saveLastTryOn({
-            product_id: garmentInfo.product_id,
-            name: garmentInfo.name,
-            brand: garmentInfo.brand,
-            image_b64: frontImageB64,
-            timestamp: Date.now(),
-          });
-        }
+        storage.saveLastTryOn({
+          product_id: garmentInfo.product_id,
+          name: garmentInfo.name,
+          brand: garmentInfo.brand,
+          image_b64: aiResult.image_b64,
+          timestamp: Date.now(),
+        });
       } catch {}
     } catch (error: any) {
       Alert.alert("AI Try-On Failed", error.message + "\nFalling back to 3D view.");
@@ -531,14 +427,9 @@ export default function TryOnScreen({ route, navigation }: Props) {
     } catch {}
   };
 
-  const onAngleScroll = (event: any) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 32));
-    setActiveAngle(index);
-  };
-
   const viewerWidth = SCREEN_WIDTH - 32;
 
-  if (loading && angleImages.length === 0 && views360.length === 0 && !result) {
+  if (loading && !aiImageB64 && !result) {
     return <LoadingScreen viewMode={viewMode} />;
   }
 
@@ -567,46 +458,12 @@ export default function TryOnScreen({ route, navigation }: Props) {
       {/* Viewer area */}
       <View style={styles.viewer}>
         {viewMode === "ai" ? (
-          views360.length > 0 ? (
-            <RotateViewer views={views360} width={viewerWidth} />
-          ) : angleImages.length > 0 ? (
-            <View style={{ flex: 1 }}>
-              <FlatList
-                ref={flatListRef}
-                data={angleImages}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={onAngleScroll}
-                keyExtractor={(item) => item.angle}
-                renderItem={({ item }) => (
-                  <Image
-                    source={{ uri: `data:image/png;base64,${item.image_b64}` }}
-                    style={[styles.aiImage, { width: viewerWidth }]}
-                    resizeMode="contain"
-                  />
-                )}
-              />
-              {/* Angle indicator dots + label */}
-              {angleImages.length > 1 && (
-                <View style={styles.angleIndicator}>
-                  <Text style={styles.angleLabel}>
-                    {angleImages[activeAngle]?.angle}
-                  </Text>
-                  <View style={styles.dots}>
-                    {angleImages.map((_, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          styles.dot,
-                          i === activeAngle && styles.dotActive,
-                        ]}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
+          aiImageB64 ? (
+            <Image
+              source={{ uri: `data:image/png;base64,${aiImageB64}` }}
+              style={[styles.aiImage, { width: viewerWidth }]}
+              resizeMode="contain"
+            />
           ) : (
             <View style={styles.viewerPlaceholder}>
               {aiLoading ? (
@@ -816,90 +673,6 @@ const styles = StyleSheet.create({
   aiImage: {
     flex: 1,
     backgroundColor: "#111",
-  },
-  // 360° rotate viewer
-  rotateIndicator: {
-    position: "absolute",
-    bottom: 12,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-  },
-  rotateAngleBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 6,
-  },
-  rotateAngleText: {
-    color: "#f5f5dc",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  rotateProgress: {
-    flexDirection: "row",
-    gap: 3,
-  },
-  rotateTick: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  rotateTickActive: {
-    backgroundColor: "#f5f5dc",
-    width: 12,
-  },
-  dragHint: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  dragHintText: {
-    color: "#666",
-    fontSize: 12,
-  },
-  angleIndicator: {
-    position: "absolute",
-    bottom: 12,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-  },
-  angleLabel: {
-    color: "#f5f5dc",
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 6,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  dots: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.3)",
-  },
-  dotActive: {
-    backgroundColor: "#f5f5dc",
   },
   viewerPlaceholder: {
     flex: 1,
