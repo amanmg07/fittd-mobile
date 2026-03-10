@@ -358,6 +358,12 @@ export default function TryOnScreen({ route, navigation }: Props) {
           image_b64: aiResult.image_b64,
           timestamp: Date.now(),
         });
+        storage.addTryOnToHistory({
+          tryon_image_b64: aiResult.image_b64,
+          product_name: garmentInfo.name,
+          product_brand: garmentInfo.brand,
+          selected_size: aiResult.selected_size,
+        });
       } catch {}
     } catch (error: any) {
       Alert.alert("AI Try-On Failed", error.message + "\nFalling back to 3D view.");

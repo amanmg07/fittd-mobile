@@ -28,8 +28,14 @@ export interface RecentTryOn {
 export interface ScanHistoryItem {
   id: string;
   timestamp: number;
-  profile: BodyProfile;
+  type: "scan" | "tryon";
+  profile: BodyProfile | null;
   thumbnail_b64: string | null;
+  // Try-on specific fields
+  product_name?: string;
+  product_brand?: string;
+  selected_size?: string;
+  tryon_image_b64?: string;
 }
 
 export const storage = {
@@ -97,10 +103,33 @@ export const storage = {
     const item: ScanHistoryItem = {
       id: `scan_${Date.now()}`,
       timestamp: Date.now(),
+      type: "scan",
       profile,
       thumbnail_b64,
     };
-    const updated = [item, ...existing].slice(0, 20);
+    const updated = [item, ...existing].slice(0, 30);
+    await AsyncStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(updated));
+  },
+
+  async addTryOnToHistory(params: {
+    tryon_image_b64: string;
+    product_name: string;
+    product_brand: string;
+    selected_size: string;
+  }): Promise<void> {
+    const existing = await this.loadScanHistory();
+    const item: ScanHistoryItem = {
+      id: `tryon_${Date.now()}`,
+      timestamp: Date.now(),
+      type: "tryon",
+      profile: null,
+      thumbnail_b64: null,
+      tryon_image_b64: params.tryon_image_b64,
+      product_name: params.product_name,
+      product_brand: params.product_brand,
+      selected_size: params.selected_size,
+    };
+    const updated = [item, ...existing].slice(0, 30);
     await AsyncStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(updated));
   },
 

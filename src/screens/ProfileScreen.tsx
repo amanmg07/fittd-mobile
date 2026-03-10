@@ -44,60 +44,91 @@ function ScanDetailModal({
   onClose: () => void;
   onCompare: () => void;
 }) {
-  const m = scan.profile.measurements;
-  const rows = [
-    { label: "Chest", value: formatLength(m.chest, unit) },
-    { label: "Waist", value: formatLength(m.waist, unit) },
-    { label: "Hips", value: formatLength(m.hips, unit) },
-    { label: "Shoulders", value: formatLength(m.shoulder_width, unit) },
-    { label: "Neck", value: formatLength(m.neck, unit) },
-    { label: "Arm Length", value: formatLength(m.arm_length, unit) },
-    { label: "Torso", value: formatLength(m.torso_length, unit) },
-  ];
+  const isTryOn = scan.type === "tryon";
+  const thumbUri = isTryOn && scan.tryon_image_b64
+    ? `data:image/png;base64,${scan.tryon_image_b64}`
+    : scan.thumbnail_b64
+      ? `data:image/jpeg;base64,${scan.thumbnail_b64}`
+      : null;
 
   return (
     <Modal visible transparent animationType="slide">
       <View style={modalStyles.overlay}>
         <View style={modalStyles.sheet}>
           <View style={modalStyles.header}>
-            <Text style={modalStyles.title}>Scan — {formatDate(scan.timestamp)}</Text>
+            <Text style={modalStyles.title}>
+              {isTryOn ? "Try-On" : "Body Scan"} — {formatDate(scan.timestamp)}
+            </Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color="#f5f5dc" />
             </TouchableOpacity>
           </View>
 
-          {scan.thumbnail_b64 && (
+          {thumbUri && (
             <Image
-              source={{ uri: `data:image/jpeg;base64,${scan.thumbnail_b64}` }}
-              style={modalStyles.detailThumb}
+              source={{ uri: thumbUri }}
+              style={[modalStyles.detailThumb, isTryOn && { height: 240 }]}
               resizeMode="contain"
             />
           )}
 
-          <View style={modalStyles.statsRow}>
-            <View style={modalStyles.statPill}>
-              <Text style={modalStyles.statPillLabel}>Height</Text>
-              <Text style={modalStyles.statPillValue}>{formatHeight(m.height, unit)}</Text>
-            </View>
-            <View style={modalStyles.statPill}>
-              <Text style={modalStyles.statPillLabel}>Weight</Text>
-              <Text style={modalStyles.statPillValue}>
-                {formatWeightValue(m.weight, unit)} {weightUnit(unit)}
-              </Text>
-            </View>
-          </View>
+          {isTryOn ? (
+            <>
+              <View style={modalStyles.statsRow}>
+                <View style={modalStyles.statPill}>
+                  <Text style={modalStyles.statPillLabel}>Brand</Text>
+                  <Text style={modalStyles.statPillValue}>{scan.product_brand}</Text>
+                </View>
+                <View style={modalStyles.statPill}>
+                  <Text style={modalStyles.statPillLabel}>Size</Text>
+                  <Text style={modalStyles.statPillValue}>{scan.selected_size}</Text>
+                </View>
+              </View>
+              <View style={modalStyles.row}>
+                <Text style={modalStyles.rowLabel}>Product</Text>
+                <Text style={[modalStyles.rowValue, { flex: 1, textAlign: "right" }]} numberOfLines={2}>
+                  {scan.product_name}
+                </Text>
+              </View>
+            </>
+          ) : scan.profile ? (
+            <>
+              <View style={modalStyles.statsRow}>
+                <View style={modalStyles.statPill}>
+                  <Text style={modalStyles.statPillLabel}>Height</Text>
+                  <Text style={modalStyles.statPillValue}>
+                    {formatHeight(scan.profile.measurements.height, unit)}
+                  </Text>
+                </View>
+                <View style={modalStyles.statPill}>
+                  <Text style={modalStyles.statPillLabel}>Weight</Text>
+                  <Text style={modalStyles.statPillValue}>
+                    {formatWeightValue(scan.profile.measurements.weight, unit)} {weightUnit(unit)}
+                  </Text>
+                </View>
+              </View>
 
-          {rows.map((r) => (
-            <View key={r.label} style={modalStyles.row}>
-              <Text style={modalStyles.rowLabel}>{r.label}</Text>
-              <Text style={modalStyles.rowValue}>{r.value}</Text>
-            </View>
-          ))}
+              {[
+                { label: "Chest", value: formatLength(scan.profile.measurements.chest, unit) },
+                { label: "Waist", value: formatLength(scan.profile.measurements.waist, unit) },
+                { label: "Hips", value: formatLength(scan.profile.measurements.hips, unit) },
+                { label: "Shoulders", value: formatLength(scan.profile.measurements.shoulder_width, unit) },
+                { label: "Neck", value: formatLength(scan.profile.measurements.neck, unit) },
+                { label: "Arm Length", value: formatLength(scan.profile.measurements.arm_length, unit) },
+                { label: "Torso", value: formatLength(scan.profile.measurements.torso_length, unit) },
+              ].map((r) => (
+                <View key={r.label} style={modalStyles.row}>
+                  <Text style={modalStyles.rowLabel}>{r.label}</Text>
+                  <Text style={modalStyles.rowValue}>{r.value}</Text>
+                </View>
+              ))}
 
-          <TouchableOpacity style={modalStyles.compareBtn} onPress={onCompare}>
-            <Ionicons name="git-compare-outline" size={18} color="#0a0a0a" />
-            <Text style={modalStyles.compareBtnText}>Compare with another scan</Text>
-          </TouchableOpacity>
+              <TouchableOpacity style={modalStyles.compareBtn} onPress={onCompare}>
+                <Ionicons name="git-compare-outline" size={18} color="#0a0a0a" />
+                <Text style={modalStyles.compareBtnText}>Compare with another scan</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -146,6 +177,10 @@ function CompareModal({
   unit: UnitSystem;
   onClose: () => void;
 }) {
+  if (!scanA.profile || !scanB.profile) {
+    onClose();
+    return null;
+  }
   const mA = scanA.profile.measurements;
   const mB = scanB.profile.measurements;
 
@@ -411,19 +446,20 @@ export default function ProfileScreen({ navigation }: Props) {
         ))}
       </View>
 
-      {/* Scan History */}
+      {/* History */}
       {scanHistory.length > 0 && (
         <>
-          <Text style={styles.sectionLabel}>Scan History</Text>
+          <Text style={styles.sectionLabel}>History</Text>
           <View style={styles.historyCard}>
             {scanHistory.map((scan, i) => {
-              const date = new Date(scan.timestamp);
-              const dateStr = date.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              });
-              const sm = scan.profile.measurements;
+              const dateStr = formatDate(scan.timestamp);
+              const isTryOn = scan.type === "tryon";
+              const thumbUri = isTryOn && scan.tryon_image_b64
+                ? `data:image/png;base64,${scan.tryon_image_b64}`
+                : scan.thumbnail_b64
+                  ? `data:image/jpeg;base64,${scan.thumbnail_b64}`
+                  : null;
+
               return (
                 <TouchableOpacity
                   key={scan.id}
@@ -432,27 +468,38 @@ export default function ProfileScreen({ navigation }: Props) {
                     i === scanHistory.length - 1 && styles.historyRowLast,
                   ]}
                   onPress={() => {
-                    if (compareMode) {
+                    if (compareMode && scan.type === "scan") {
                       setCompareScan(scan);
                     } else {
                       setSelectedScan(scan);
                     }
                   }}
                 >
-                  {scan.thumbnail_b64 ? (
+                  {thumbUri ? (
                     <Image
-                      source={{ uri: `data:image/jpeg;base64,${scan.thumbnail_b64}` }}
+                      source={{ uri: thumbUri }}
                       style={styles.historyThumb}
                     />
                   ) : (
                     <View style={[styles.historyThumb, styles.historyThumbEmpty]}>
-                      <Ionicons name="person-outline" size={18} color="#555" />
+                      <Ionicons name={isTryOn ? "shirt-outline" : "person-outline"} size={18} color="#555" />
                     </View>
                   )}
                   <View style={styles.historyInfo}>
-                    <Text style={styles.historyDate}>{dateStr}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={styles.historyDate}>{dateStr}</Text>
+                      <View style={[styles.historyTypeBadge, isTryOn && styles.historyTypeBadgeTryon]}>
+                        <Text style={styles.historyTypeText}>
+                          {isTryOn ? "Try-On" : "Scan"}
+                        </Text>
+                      </View>
+                    </View>
                     <Text style={styles.historyMeasures}>
-                      Chest {formatLength(sm.chest, unit)} · Waist {formatLength(sm.waist, unit)} · Hips {formatLength(sm.hips, unit)}
+                      {isTryOn
+                        ? `${scan.product_brand} ${scan.product_name} · ${scan.selected_size}`
+                        : scan.profile
+                          ? `Chest ${formatLength(scan.profile.measurements.chest, unit)} · Waist ${formatLength(scan.profile.measurements.waist, unit)} · Hips ${formatLength(scan.profile.measurements.hips, unit)}`
+                          : ""}
                     </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={16} color="#555" />
@@ -796,9 +843,24 @@ const styles = StyleSheet.create({
     color: "#f5f5dc",
     marginBottom: 2,
   },
+  historyTypeBadge: {
+    backgroundColor: "#2a2a2a",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  historyTypeBadgeTryon: {
+    backgroundColor: "#1a3a2a",
+  },
+  historyTypeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#888",
+  },
   historyMeasures: {
     fontSize: 12,
     color: "#888",
+    marginTop: 2,
   },
 });
 
